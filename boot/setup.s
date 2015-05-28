@@ -33,19 +33,21 @@ start:
 ! ok, the read went well so we get current cursor position and save it for
 ! posterity.
 
+	! 把数据段指向INITSEG
 	mov	ax,#INITSEG	! this is done in bootsect already, but...
 	mov	ds,ax
 	mov	ah,#0x03	! read cursor pos
 	xor	bh,bh
 	int	0x10		! save it in known place, con_init fetches
-	mov	[0],dx		! it from 0x90000.
+	mov	[0],dx		! it from 0x90000. (光标所在位置)
+
 ! Get memory size (extended mem, kB)
 
 	mov	ah,#0x88
 	int	0x15
-	mov	[2],ax
+	mov	[2],ax		! 获取扩展内存大小
 
-! Get video-card data:
+! Get video-card data(获取显示器模式):
 
 	mov	ah,#0x0f
 	int	0x10
@@ -62,12 +64,22 @@ start:
 	mov	[12],cx
 
 ! Get hd0 data
+! ---------------
+! lds指令说明:
+! lds dest [src]
+! ---------------
+! 拿16位的 lds bx, [0x1000] 说哈.
+! 如果内存里是这样:
+! 0x1000 34 12
+! 0x1002 78 56
+! 那么这个指令执行完后, DS:BX == 0x5678:0x1234
+! 也就是说, 这个指令把src指向的内存里的东西放到DS:dest里.
 
 	mov	ax,#0x0000
-	mov	ds,ax
-	lds	si,[4*0x41]
+	mov	ds,ax			! DS指向0x0000
+	lds	si,[4*0x41]		! 把[4*0x41]处的值载入到DS:SI
 	mov	ax,#INITSEG
-	mov	es,ax
+	mov	es,ax			! ES指向0x9000
 	mov	di,#0x0080
 	mov	cx,#0x10
 	rep
