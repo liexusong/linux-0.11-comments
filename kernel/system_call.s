@@ -208,7 +208,7 @@ sys_execve:
 sys_fork:
 	call find_empty_process
 	testl %eax,%eax
-	js 1f
+	js 1f            # if sign flag is negative
 	push %gs
 	pushl %esi
 	pushl %edi

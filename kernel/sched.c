@@ -392,7 +392,7 @@ void sched_init(void)
 	set_tss_desc(gdt+FIRST_TSS_ENTRY,&(init_task.task.tss));
 	set_ldt_desc(gdt+FIRST_LDT_ENTRY,&(init_task.task.ldt));
 	p = gdt+2+FIRST_TSS_ENTRY;
-	for(i=1;i<NR_TASKS;i++) {
+	for(i=1;i<NR_TASKS;i++) { /* clear all task struct except 0 task */
 		task[i] = NULL;
 		p->a=p->b=0;
 		p++;

@@ -262,6 +262,7 @@ void write_verify(unsigned long address)
 {
 	unsigned long page;
 
+	/* 页目录是否可写? */
 	if (!( (page = *((unsigned long *) ((address>>20) & 0xffc)) )&1))
 		return;
 	page &= 0xfffff000;

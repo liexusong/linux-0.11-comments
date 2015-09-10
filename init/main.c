@@ -92,7 +92,7 @@ static void time_init(void)
 	BCD_TO_BIN(time.tm_mon);
 	BCD_TO_BIN(time.tm_year);
 	time.tm_mon--;
-	startup_time = kernel_mktime(&time);
+	startup_time = kernel_mktime(&time); /* 生成自1970年开始经过的时间戳 */
 }
 
 static long memory_end = 0;
@@ -123,8 +123,8 @@ void main(void)		/* This really IS void, no error here. */
 #ifdef RAMDISK
 	main_memory_start += rd_init(main_memory_start, RAMDISK*1024);
 #endif
-	mem_init(main_memory_start,memory_end);
-	trap_init();
+	mem_init(main_memory_start,memory_end); /* 初始化内存 */
+	trap_init();                            /* 初始化CPU异常处理 */
 	blk_dev_init();
 	chr_dev_init();
 	tty_init();

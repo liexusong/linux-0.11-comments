@@ -170,48 +170,48 @@ __asm__("str %%ax\n\t" \
  * This also clears the TS-flag if the task we switched to has used
  * tha math co-processor latest.
  */
-#define switch_to(n) {\
-struct {long a,b;} __tmp; \
-__asm__("cmpl %%ecx,current\n\t" \
-	"je 1f\n\t" \
-	"movw %%dx,%1\n\t" \
-	"xchgl %%ecx,current\n\t" \
-	"ljmp *%0\n\t" \
+#define switch_to(n) {                   \
+struct {long a,b;} __tmp;                \
+__asm__("cmpl %%ecx,current\n\t"         \
+	"je 1f\n\t"                          \
+	"movw %%dx,%1\n\t"                   \
+	"xchgl %%ecx,current\n\t"            \
+	"ljmp *%0\n\t"                       \
 	"cmpl %%ecx,last_task_used_math\n\t" \
-	"jne 1f\n\t" \
-	"clts\n" \
-	"1:" \
-	::"m" (*&__tmp.a),"m" (*&__tmp.b), \
+	"jne 1f\n\t"                         \
+	"clts\n"                             \
+	"1:"                                 \
+	::"m" (*&__tmp.a),"m" (*&__tmp.b),   \
 	"d" (_TSS(n)),"c" ((long) task[n])); \
 }
 
 #define PAGE_ALIGN(n) (((n)+0xfff)&0xfffff000)
 
-#define _set_base(addr,base)  \
-__asm__ ("push %%edx\n\t" \
-	"movw %%dx,%0\n\t" \
-	"rorl $16,%%edx\n\t" \
-	"movb %%dl,%1\n\t" \
-	"movb %%dh,%2\n\t" \
-	"pop %%edx" \
-	::"m" (*((addr)+2)), \
-	 "m" (*((addr)+4)), \
-	 "m" (*((addr)+7)), \
-	 "d" (base) \
+#define _set_base(addr,base)            \
+__asm__ ("push %%edx\n\t"               \
+	"movw %%dx,%0\n\t"                  \
+	"rorl $16,%%edx\n\t"                \
+	"movb %%dl,%1\n\t"                  \
+	"movb %%dh,%2\n\t"                  \
+	"pop %%edx"                         \
+	::"m" (*((addr)+2)),                \
+	 "m" (*((addr)+4)),                 \
+	 "m" (*((addr)+7)),                 \
+	 "d" (base)                         \
 	)
 
-#define _set_limit(addr,limit) \
-__asm__ ("push %%edx\n\t" \
-	"movw %%dx,%0\n\t" \
-	"rorl $16,%%edx\n\t" \
-	"movb %1,%%dh\n\t" \
-	"andb $0xf0,%%dh\n\t" \
-	"orb %%dh,%%dl\n\t" \
-	"movb %%dl,%1\n\t" \
-	"pop %%edx" \
-	::"m" (*(addr)), \
-	 "m" (*((addr)+6)), \
-	 "d" (limit) \
+#define _set_limit(addr,limit)          \
+__asm__ ("push %%edx\n\t"               \
+	"movw %%dx,%0\n\t"                  \
+	"rorl $16,%%edx\n\t"                \
+	"movb %1,%%dh\n\t"                  \
+	"andb $0xf0,%%dh\n\t"               \
+	"orb %%dh,%%dl\n\t"                 \
+	"movb %%dl,%1\n\t"                  \
+	"pop %%edx"                         \
+	::"m" (*(addr)),                    \
+	 "m" (*((addr)+6)),                 \
+	 "d" (limit)                        \
 	)
 
 #define set_base(ldt,base) _set_base( ((char *)&(ldt)) , (base) )

@@ -21,14 +21,19 @@ extern void write_verify(unsigned long address);
 
 long last_pid=0;
 
+/**
+ * 验证地址是否合法
+ * @addr: 开始地址
+ * @size: 内存大小
+ */
 void verify_area(void * addr,int size)
 {
 	unsigned long start;
 
 	start = (unsigned long) addr;
-	size += start & 0xfff;
-	start &= 0xfffff000;
-	start += get_base(current->ldt[2]);
+	size += start & 0xfff;  // 真实要验证的内存大小
+	start &= 0xfffff000;    // 真实的开始内存地址
+	start += get_base(current->ldt[2]); /* 加上局部数据段的基地址 */
 	while (size>0) {
 		size -= 4096;
 		write_verify(start);
@@ -41,18 +46,20 @@ int copy_mem(int nr,struct task_struct * p)
 	unsigned long old_data_base,new_data_base,data_limit;
 	unsigned long old_code_base,new_code_base,code_limit;
 
-	code_limit=get_limit(0x0f);
-	data_limit=get_limit(0x17);
-	old_code_base = get_base(current->ldt[1]);
-	old_data_base = get_base(current->ldt[2]);
+	code_limit=get_limit(0x0f); // 代码段长度限制
+	data_limit=get_limit(0x17); // 数据段长度限制
+	old_code_base = get_base(current->ldt[1]); // 被复制的进程代码段起始位置
+	old_data_base = get_base(current->ldt[2]); // 被复制的进程数据段起始位置
 	if (old_data_base != old_code_base)
 		panic("We don't support separate I&D");
 	if (data_limit < code_limit)
 		panic("Bad data_limit");
-	new_data_base = new_code_base = nr * 0x4000000;
+	new_data_base = new_code_base = nr * 0x4000000; // 新进程代码段和数据段的内存起始位置
 	p->start_code = new_code_base;
+	// 设置ldt
 	set_base(p->ldt[1],new_code_base);
 	set_base(p->ldt[2],new_data_base);
+	// 新进程映射到到旧进程的内存地址
 	if (copy_page_tables(old_data_base,new_data_base,data_limit)) {
 		printk("free_page_tables: from copy_mem\n");
 		free_page_tables(new_data_base,data_limit);
@@ -133,6 +140,9 @@ int copy_process(int nr,long ebp,long edi,long esi,long gs,long none,
 	return last_pid;
 }
 
+/*
+ * 找到一个空的task struct结构
+ */
 int find_empty_process(void)
 {
 	int i;

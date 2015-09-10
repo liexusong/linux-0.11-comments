@@ -21,7 +21,7 @@ int sys_ssetmask(int newmask)
 {
 	int old=current->blocked;
 
-	current->blocked = newmask & ~(1<<(SIGKILL-1));
+	current->blocked = newmask & ~(1<<(SIGKILL-1)); /* 除了kill信号不能被阻塞 */
 	return old;
 }
 
@@ -69,7 +69,7 @@ int sys_sigaction(int signum, const struct sigaction * action,
 		return -1;
 	tmp = current->sigaction[signum-1];
 	get_new((char *) action,
-		(char *) (signum-1+current->sigaction));
+		(char *) (signum-1+current->sigaction)); /* 保存到当前进程的对应信号处理中 */
 	if (oldaction)
 		save_old((char *) &tmp,(char *) oldaction);
 	if (current->sigaction[signum-1].sa_flags & SA_NOMASK)
