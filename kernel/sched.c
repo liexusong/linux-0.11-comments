@@ -122,7 +122,7 @@ void schedule(void)
 /* this is the scheduler proper: */
 
 	while (1) {
-		c = -1;
+		c = -1;  // 这个是用于判断是否使用idle进程的技巧(task0)
 		next = 0;
 		i = NR_TASKS;
 		p = &task[NR_TASKS];
@@ -132,7 +132,7 @@ void schedule(void)
 			if ((*p)->state == TASK_RUNNING && (*p)->counter > c)
 				c = (*p)->counter, next = i;
 		}
-		if (c) break;
+		if (c) break; // 如果c等于-1也会跳出循环, 此时将会使用idle进程
 		for(p = &LAST_TASK ; p > &FIRST_TASK ; --p)
 			if (*p)
 				(*p)->counter = ((*p)->counter >> 1) +
@@ -331,7 +331,7 @@ void do_timer(long cpl)
 		do_floppy_timer();
 	if ((--current->counter)>0) return;
 	current->counter=0;
-	if (!cpl) return;
+	if (!cpl) return;  // 如果是内核态, 那么就不能被调度
 	schedule();
 }
 

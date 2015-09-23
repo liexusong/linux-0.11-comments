@@ -122,8 +122,9 @@ void tty_intr(struct tty_struct * tty, int mask)
 static void sleep_if_empty(struct tty_queue * queue)
 {
 	cli();
+	// 当前没有信号并且缓冲区为空
 	while (!current->signal && EMPTY(*queue))
-		interruptible_sleep_on(&queue->proc_list);
+		interruptible_sleep_on(&queue->proc_list); // 休眠当前进程
 	sti();
 }
 
