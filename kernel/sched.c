@@ -101,6 +101,8 @@ void math_state_restore()
  * tasks can run. It can not be killed, and it cannot sleep. The 'state'
  * information in task[0] is never used.
  */
+// 在内核态的时候, 只有主动调用schedule()才会触发进程切换, 否则不会被调度
+// 只有用户态才会在do_timer()的时候主动调用schedule()
 void schedule(void)
 {
 	int i,next,c;
@@ -331,7 +333,7 @@ void do_timer(long cpl)
 		do_floppy_timer();
 	if ((--current->counter)>0) return;
 	current->counter=0;
-	if (!cpl) return;  // 如果是内核态, 那么就不能被调度
+	if (!cpl) return;  // 如果是内核态, 那么就不能被调度(即内核态不会被timer重新调度)
 	schedule();
 }
 

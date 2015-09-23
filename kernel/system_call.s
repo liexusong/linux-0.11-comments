@@ -172,6 +172,7 @@ device_not_available:
 	popl %ebp
 	ret
 
+# timer中断回调
 .align 2
 timer_interrupt:
 	push %ds		# save ds,es and put kernel data space
@@ -186,7 +187,7 @@ timer_interrupt:
 	mov %ax,%es
 	movl $0x17,%eax
 	mov %ax,%fs
-	incl jiffies
+	incl jiffies        # 增加 jiffies 计数器
 	movb $0x20,%al		# EOI to interrupt controller #1
 	outb %al,$0x20
 	movl CS(%esp),%eax

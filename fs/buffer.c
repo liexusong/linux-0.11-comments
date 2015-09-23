@@ -38,9 +38,17 @@ int NR_BUFFERS = 0;
 
 static inline void wait_on_buffer(struct buffer_head * bh)
 {
+	// 关闭当前进程的所有IO中断.
+	// 关闭中断的原因是:
+	// =================
+	// 有可能在调用sleep_on()的时候硬盘操作已经完成了,
+	// 这时候就会产生硬盘中断, 把lock的进程唤醒了, 并且把lock解除了.
+	// 这就会发生错误, 因为这时候bh->b_lock已经变成了0,
+	// 所以此时sleep_on()当前进程就不会被唤醒.
+	// 所以此处必须先关闭中断, 然后把进程添加到等待队列中.
 	cli();
 	while (bh->b_lock)
-		sleep_on(&bh->b_wait);
+		sleep_on(&bh->b_wait); // 在内核态睡眠
 	sti();
 }
 
