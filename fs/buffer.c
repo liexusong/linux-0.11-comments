@@ -49,7 +49,7 @@ static inline void wait_on_buffer(struct buffer_head * bh)
 	cli();
 	while (bh->b_lock)
 		sleep_on(&bh->b_wait); // 在内核态睡眠
-	sti();
+	sti(); // buffer_head已经解锁, 所以打开IO中断
 }
 
 int sys_sync(void)

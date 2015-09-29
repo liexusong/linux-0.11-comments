@@ -47,7 +47,7 @@ void invalidate_inodes(int dev)
 
 	inode = 0+inode_table;
 	for(i=0 ; i<NR_INODE ; i++,inode++) {
-		wait_on_inode(inode);
+		wait_on_inode(inode); // 等待inode解锁
 		if (inode->i_dev == dev) {
 			if (inode->i_count)
 				printk("inode in use on removed disk\n\r");
@@ -64,7 +64,7 @@ void sync_inodes(void)
 	inode = 0+inode_table;
 	for(i=0 ; i<NR_INODE ; i++,inode++) {
 		wait_on_inode(inode);
-		if (inode->i_dirt && !inode->i_pipe)
+		if (inode->i_dirt && !inode->i_pipe) // 管道不需要同步
 			write_inode(inode);
 	}
 }

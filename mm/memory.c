@@ -64,22 +64,24 @@ unsigned long get_free_page(void)
 {
 register unsigned long __res asm("ax");
 
-__asm__("std ; repne ; scasb\n\t"
-	"jne 1f\n\t"
-	"movb $1,1(%%edi)\n\t"
-	"sall $12,%%ecx\n\t"
-	"addl %2,%%ecx\n\t"
+// ecx: 计数用, 开始设置为PAGING_PAGES
+// di: 用于mem_map内存开始地址
+__asm__("std ; repne ; scasb\n\t" // 置方向位, al(0)与对应每个页面的(di)内容比较
+	"jne 1f\n\t"                  // 如果没有等于0的字节, 则跳转到结束(返回0)
+	"movb $1,1(%%edi)\n\t"        // 将对应的页面位置设置为1
+	"sall $12,%%ecx\n\t"          // 页面数 * 4k == 相对页面开始地址
+	"addl %2,%%ecx\n\t"           // 加上低端内存地址(0x100000)
 	"movl %%ecx,%%edx\n\t"
 	"movl $1024,%%ecx\n\t"
 	"leal 4092(%%edx),%%edi\n\t"
-	"rep ; stosl\n\t"
+	"rep ; stosl\n\t"             // 清空内存页数据
 	"movl %%edx,%%eax\n"
 	"1:"
 	:"=a" (__res)
 	:"0" (0),"i" (LOW_MEM),"c" (PAGING_PAGES),
 	"D" (mem_map+PAGING_PAGES-1)
 	);
-return __res;
+return __res;  // 返回空闲页的物理地址
 }
 
 /*
@@ -88,8 +90,8 @@ return __res;
  */
 void free_page(unsigned long addr)
 {
-	if (addr < LOW_MEM) return;
-	if (addr >= HIGH_MEMORY)
+	if (addr < LOW_MEM) return;     // 地址小于系统的最小内存地址
+	if (addr >= HIGH_MEMORY)        // 地址超出系统支持的最大内存地址
 		panic("trying to free nonexistent page");
 	addr -= LOW_MEM;
 	addr >>= 12;
@@ -111,9 +113,9 @@ int free_page_tables(unsigned long from,unsigned long size)
 		panic("free_page_tables called with wrong alignment");
 	if (!from)
 		panic("Trying to free up swapper memory space");
-	size = (size + 0x3fffff) >> 22;
+	size = (size + 0x3fffff) >> 22;  // 除以4m, 计算出页目录项数
 	dir = (unsigned long *) ((from>>20) & 0xffc); /* _pg_dir = 0 */
-	for ( ; size-->0 ; dir++) {
+	for ( ; size-- > 0 ; dir++) {
 		if (!(1 & *dir))
 			continue;
 		pg_table = (unsigned long *) (0xfffff000 & *dir);
@@ -126,7 +128,7 @@ int free_page_tables(unsigned long from,unsigned long size)
 		free_page(0xfffff000 & *dir);
 		*dir = 0;
 	}
-	invalidate();
+	invalidate(); // 刷新CPU的高速缓存
 	return 0;
 }
 

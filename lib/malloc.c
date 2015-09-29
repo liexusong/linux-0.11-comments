@@ -99,6 +99,7 @@ static inline void init_bucket_desc()
 	struct bucket_desc *bdesc, *first;
 	int	i;
 	
+	// 获取一个新的空白页
 	first = bdesc = (struct bucket_desc *) get_free_page();
 	if (!bdesc)
 		panic("Out of memory in init_bucket_desc()");
