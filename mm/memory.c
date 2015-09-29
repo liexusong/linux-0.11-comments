@@ -116,7 +116,7 @@ int free_page_tables(unsigned long from,unsigned long size)
 	size = (size + 0x3fffff) >> 22;  // 除以4m, 计算出页目录项数
 	dir = (unsigned long *) ((from>>20) & 0xffc); /* _pg_dir = 0 */
 	for ( ; size-- > 0 ; dir++) {
-		if (!(1 & *dir))
+		if (!(1 & *dir)) // 如果内存页无效, 跳过此页
 			continue;
 		pg_table = (unsigned long *) (0xfffff000 & *dir);
 		for (nr=0 ; nr<1024 ; nr++) {
@@ -159,10 +159,13 @@ int copy_page_tables(unsigned long from,unsigned long to,long size)
 
 	if ((from&0x3fffff) || (to&0x3fffff))
 		panic("copy_page_tables called with wrong alignment");
+	// 源地址所在页目录项
 	from_dir = (unsigned long *) ((from>>20) & 0xffc); /* _pg_dir = 0 */
+	// 目标地址所在页目录项
 	to_dir = (unsigned long *) ((to>>20) & 0xffc);
+	// 要复制多少个项
 	size = ((unsigned) (size+0x3fffff)) >> 22;
-	for( ; size-->0 ; from_dir++,to_dir++) {
+	for( ; size-- > 0 ; from_dir++,to_dir++) {
 		if (1 & *to_dir)
 			panic("copy_page_tables: already exist");
 		if (!(1 & *from_dir))
@@ -170,12 +173,15 @@ int copy_page_tables(unsigned long from,unsigned long to,long size)
 		from_page_table = (unsigned long *) (0xfffff000 & *from_dir);
 		if (!(to_page_table = (unsigned long *) get_free_page()))
 			return -1;	/* Out of memory, see freeing */
+		// 设置页目录表项的信息:
+		// 把最后3位设置为1, 表示对应页表映射的内存页面是: 用户级的,可读写的,存在的
 		*to_dir = ((unsigned long) to_page_table) | 7;
 		nr = (from==0)?0xA0:1024;
 		for ( ; nr-- > 0 ; from_page_table++,to_page_table++) {
 			this_page = *from_page_table;
 			if (!(1 & this_page))
 				continue;
+			// 把当前页表项设置为只读
 			this_page &= ~2;
 			*to_page_table = this_page;
 			if (this_page > LOW_MEM) {
