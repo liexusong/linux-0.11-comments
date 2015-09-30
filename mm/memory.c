@@ -202,6 +202,7 @@ int copy_page_tables(unsigned long from,unsigned long to,long size)
  * out of memory (either when trying to access page-table or
  * page.)
  */
+// address映射到page
 unsigned long put_page(unsigned long page,unsigned long address)
 {
 	unsigned long tmp, *page_table;
@@ -210,17 +211,19 @@ unsigned long put_page(unsigned long page,unsigned long address)
 
 	if (page < LOW_MEM || page >= HIGH_MEMORY)
 		printk("Trying to put page %p at %p\n",page,address);
-	if (mem_map[(page-LOW_MEM)>>12] != 1)
+	if (mem_map[(page-LOW_MEM)>>12] != 1) // 如果此内存页还没有申请, 提示错误
 		printk("mem_map disagrees with %p at %p\n",page,address);
+	// 找到address对应的页目录项
 	page_table = (unsigned long *) ((address>>20) & 0xffc);
-	if ((*page_table)&1)
+	if ((*page_table)&1) // 如果页表存在
 		page_table = (unsigned long *) (0xfffff000 & *page_table);
-	else {
+	else { // 如果页表不存在, 则申请一块内存页保存
 		if (!(tmp=get_free_page()))
 			return 0;
 		*page_table = tmp|7;
 		page_table = (unsigned long *) tmp;
 	}
+	// 映射到物理内存页page
 	page_table[(address>>12) & 0x3ff] = page | 7;
 /* no need for invalidate */
 	return page;
@@ -270,16 +273,18 @@ void write_verify(unsigned long address)
 {
 	unsigned long page;
 
-	/* 页目录是否可写? */
+	/* 页表项是否可写? 不可写就直接返回 */
 	if (!( (page = *((unsigned long *) ((address>>20) & 0xffc)) )&1))
 		return;
 	page &= 0xfffff000;
-	page += ((address>>10) & 0xffc);
-	if ((3 & *(unsigned long *) page) == 1)  /* non-writeable, present */
-		un_wp_page((unsigned long *) page);
+	page += ((address>>10) & 0xffc); // address对应的页表项
+	if ((3 & *(unsigned long *) page) == 1)  /* non-writeable, present (不可写, 存在) */
+		un_wp_page((unsigned long *) page); // 写时复制
 	return;
 }
 
+// 把线性地址address映射到物理地址
+// 物理地址通过get_free_page()获得
 void get_empty_page(unsigned long address)
 {
 	unsigned long tmp;
@@ -307,19 +312,21 @@ static int try_to_share(unsigned long address, struct task_struct * p)
 	unsigned long phys_addr;
 
 	from_page = to_page = ((address>>20) & 0xffc);
+
 	from_page += ((p->start_code>>20) & 0xffc);
 	to_page += ((current->start_code>>20) & 0xffc);
 /* is there a page-directory at from? */
 	from = *(unsigned long *) from_page;
-	if (!(from & 1))
+	if (!(from & 1)) // 如果源页表不存在, 返回
 		return 0;
 	from &= 0xfffff000;
-	from_page = from + ((address>>10) & 0xffc);
-	phys_addr = *(unsigned long *) from_page;
+	from_page = from + ((address>>10) & 0xffc); // 页表项地址
+	phys_addr = *(unsigned long *) from_page;   // 页表项内容
 /* is the page clean and present? */
 	if ((phys_addr & 0x41) != 0x01)
 		return 0;
 	phys_addr &= 0xfffff000;
+	// 判断物理地址是否正确
 	if (phys_addr >= HIGH_MEMORY || phys_addr < LOW_MEM)
 		return 0;
 	to = *(unsigned long *) to_page;
@@ -334,12 +341,14 @@ static int try_to_share(unsigned long address, struct task_struct * p)
 	if (1 & *(unsigned long *) to_page)
 		panic("try_to_share: to_page already exists");
 /* share them: write-protect */
+	// 去除可写标志位
 	*(unsigned long *) from_page &= ~2;
+	// 复制源内存页地址
 	*(unsigned long *) to_page = *(unsigned long *) from_page;
-	invalidate();
+	invalidate(); // 清除高速缓存
 	phys_addr -= LOW_MEM;
 	phys_addr >>= 12;
-	mem_map[phys_addr]++;
+	mem_map[phys_addr]++; // 计数器加一
 	return 1;
 }
 
@@ -355,9 +364,9 @@ static int share_page(unsigned long address)
 {
 	struct task_struct ** p;
 
-	if (!current->executable)
+	if (!current->executable) // 1) 进程是否跟程序文件相关
 		return 0;
-	if (current->executable->i_count < 2)
+	if (current->executable->i_count < 2) // 2) 程序文件是否被多个进程引用
 		return 0;
 	for (p = &LAST_TASK ; p > &FIRST_TASK ; --p) {
 		if (!*p)
@@ -366,12 +375,16 @@ static int share_page(unsigned long address)
 			continue;
 		if ((*p)->executable != current->executable)
 			continue;
+		// 找到一个与当前进程公用程序文件的进程
+		// 那么就尝试共享内存页, 节省内存的使用
 		if (try_to_share(address,*p))
 			return 1;
 	}
 	return 0;
 }
 
+// 缺页处理:
+// address是缺页的虚拟地址
 void do_no_page(unsigned long error_code,unsigned long address)
 {
 	int nr[4];
@@ -379,28 +392,31 @@ void do_no_page(unsigned long error_code,unsigned long address)
 	unsigned long page;
 	int block,i;
 
-	address &= 0xfffff000;
-	tmp = address - current->start_code;
+	address &= 0xfffff000; // 过滤偏移地址
+	tmp = address - current->start_code; // 缺页页面对应的逻辑地址
 	if (!current->executable || tmp >= current->end_data) {
 		get_empty_page(address);
 		return;
 	}
+	// 尝试共享内存页
 	if (share_page(tmp))
 		return;
+	// 如果共享失败, 则申请块新的内存页
 	if (!(page = get_free_page()))
 		oom();
 /* remember that 1 block is used for header */
 	block = 1 + tmp/BLOCK_SIZE;
 	for (i=0 ; i<4 ; block++,i++)
-		nr[i] = bmap(current->executable,block);
+		nr[i] = bmap(current->executable,block); // 获得逻辑块号
+	// 从设备读取数据到内存页(4k)
 	bread_page(page,current->executable->i_dev,nr);
 	i = tmp + 4096 - current->end_data;
-	tmp = page + 4096;
+	tmp = page + 4096; // 指向内存页尾端
 	while (i-- > 0) {
 		tmp--;
 		*(char *)tmp = 0;
 	}
-	if (put_page(page,address))
+	if (put_page(page,address)) // 映射线性地址到物理地址
 		return;
 	free_page(page);
 	oom();
