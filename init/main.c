@@ -134,7 +134,9 @@ void main(void)		/* This really IS void, no error here. */
 	hd_init();
 	floppy_init();
 	sti();
-	move_to_user_mode();
+	// 上面都是在内核态(0)
+
+	move_to_user_mode(); // 使用用户态运行(3)
 	if (!fork()) {		/* we count on this going ok */
 		init();
 	}

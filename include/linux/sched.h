@@ -92,16 +92,16 @@ struct task_struct {
 	unsigned short uid,euid,suid;
 	unsigned short gid,egid,sgid;
 	long alarm;
-	long utime,stime,cutime,cstime,start_time;
+	long utime,stime,cutime,cstime,start_time; // 时间统计
 	unsigned short used_math;
 /* file system info */
 	int tty;		/* -1 if no tty, so it must be signed */
 	unsigned short umask;
-	struct m_inode * pwd;
-	struct m_inode * root;
-	struct m_inode * executable;
+	struct m_inode * pwd;         // 工作目录inode
+	struct m_inode * root;        // 根目录inode
+	struct m_inode * executable;  // 执行文件的inode
 	unsigned long close_on_exec;
-	struct file * filp[NR_OPEN];
+	struct file * filp[NR_OPEN];  // 打开的文件描述符
 /* ldt for this task 0 - zero 1 - cs 2 - ds&ss */
 	struct desc_struct ldt[3];
 /* tss for this task */

@@ -23,8 +23,8 @@ page_fault:
 	mov %dx,%es
 	mov %dx,%fs
 	movl %cr2,%edx
-	pushl %edx
-	pushl %eax
+	pushl %edx       /* address */
+	pushl %eax       /* error_code */
 	testl $1,%eax
 	jne 1f
 	call do_no_page  /* 如果是页缺失, 调用do_no_page() */
