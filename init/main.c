@@ -111,7 +111,7 @@ void main(void)		/* This really IS void, no error here. */
  	drive_info = DRIVE_INFO;
 	memory_end = (1<<20) + (EXT_MEM_K<<10);
 	memory_end &= 0xfffff000; /* 3GB */
-	if (memory_end > 16*1024*1024)
+	if (memory_end > 16*1024*1024) // 如果大于16M, 只支持16M的内存
 		memory_end = 16*1024*1024;
 	if (memory_end > 12*1024*1024) 
 		buffer_memory_end = 4*1024*1024;
@@ -178,7 +178,7 @@ void init(void)
 	printf("%d buffers = %d bytes buffer space\n\r",NR_BUFFERS,
 		NR_BUFFERS*BLOCK_SIZE);
 	printf("Free mem: %d bytes\n\r",memory_end-main_memory_start);
-	if (!(pid=fork())) {
+	if (!(pid=fork())) { // 创建进程2, 执行sh
 		close(0);
 		if (open("/etc/rc",O_RDONLY,0))
 			_exit(1);

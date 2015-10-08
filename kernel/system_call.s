@@ -116,7 +116,7 @@ ret_from_sys_call:
 	movl %ebx,signal(%eax)
 	incl %ecx
 	pushl %ecx
-	call do_signal
+	call do_signal         # 处理信号("系统调用" 和 "时钟中断" 需要处理信号)
 	popl %eax
 3:	popl %eax
 	popl %ebx

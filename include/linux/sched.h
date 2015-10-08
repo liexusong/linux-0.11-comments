@@ -156,7 +156,9 @@ extern void wake_up(struct task_struct ** p);
 #define FIRST_LDT_ENTRY (FIRST_TSS_ENTRY+1)
 #define _TSS(n) ((((unsigned long) n)<<4)+(FIRST_TSS_ENTRY<<3))
 #define _LDT(n) ((((unsigned long) n)<<4)+(FIRST_LDT_ENTRY<<3))
+// 加载任务n的TSS
 #define ltr(n) __asm__("ltr %%ax"::"a" (_TSS(n)))
+// 加载任务n的LDT
 #define lldt(n) __asm__("lldt %%ax"::"a" (_LDT(n)))
 #define str(n) \
 __asm__("str %%ax\n\t" \
