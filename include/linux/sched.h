@@ -82,8 +82,8 @@ struct task_struct {
 	long state;	/* -1 unrunnable, 0 runnable, >0 stopped */
 	long counter;
 	long priority;
-	long signal;
-	struct sigaction sigaction[32];
+	long signal;  // 用于保存发生的信号
+	struct sigaction sigaction[32];  // 信号处理信息
 	long blocked;	/* bitmap of masked signals */
 /* various fields */
 	int exit_code;
@@ -250,6 +250,8 @@ static inline unsigned long _get_base(char * addr)
 
 #define get_base(ldt) _get_base( ((char *)&(ldt)) )
 
+// 从ldtr寄存器获取段长度限制
+// lsll是加载段界限的指令, 即把segment段描述符中的段界限字段装入某个寄存器
 #define get_limit(segment) ({ \
 unsigned long __limit; \
 __asm__("lsll %1,%0\n\tincl %0":"=r" (__limit):"r" (segment)); \

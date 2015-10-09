@@ -54,7 +54,9 @@ int copy_mem(int nr,struct task_struct * p)
 		panic("We don't support separate I&D");
 	if (data_limit < code_limit)
 		panic("Bad data_limit");
-	new_data_base = new_code_base = nr * 0x4000000; // 新进程代码段和数据段的内存起始位置
+	// 新进程代码段和数据段的内存起始位置
+	// nr是进程号, 进程的数据段和代码段开始地址为(nr * 0x4000000)
+	new_data_base = new_code_base = nr * 0x4000000;
 	p->start_code = new_code_base;
 	// 设置ldt
 	set_base(p->ldt[1],new_code_base);
@@ -86,6 +88,7 @@ int copy_process(int nr,long ebp,long edi,long esi,long gs,long none,
 	if (!p)
 		return -EAGAIN;
 	task[nr] = p;
+	// 完全复制父进程的所有字段(ldt也在这里被复制, 在copy_mem的时候设置ldt的基地址)
 	*p = *current;	/* NOTE! this doesn't copy the supervisor stack */
 	p->state = TASK_UNINTERRUPTIBLE;
 	p->pid = last_pid;
@@ -116,7 +119,7 @@ int copy_process(int nr,long ebp,long edi,long esi,long gs,long none,
 	p->tss.ds = ds & 0xffff;
 	p->tss.fs = fs & 0xffff;
 	p->tss.gs = gs & 0xffff;
-	p->tss.ldt = _LDT(nr);
+	p->tss.ldt = _LDT(nr); // 指向GDT的偏移量
 	p->tss.trace_bitmap = 0x80000000;
 	if (last_task_used_math == current)
 		__asm__("clts ; fnsave %0"::"m" (p->tss.i387));
@@ -135,7 +138,7 @@ int copy_process(int nr,long ebp,long edi,long esi,long gs,long none,
 	if (current->executable)
 		current->executable->i_count++;
 	set_tss_desc(gdt+(nr<<1)+FIRST_TSS_ENTRY,&(p->tss));
-	set_ldt_desc(gdt+(nr<<1)+FIRST_LDT_ENTRY,&(p->ldt));
+	set_ldt_desc(gdt+(nr<<1)+FIRST_LDT_ENTRY,&(p->ldt)); // 设置GDT描述符, 指向task的ldt
 	p->state = TASK_RUNNING;	/* do this last, just in case */
 	return last_pid;
 }

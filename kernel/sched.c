@@ -182,6 +182,7 @@ repeat:	current->state = TASK_INTERRUPTIBLE;
 		(**p).state=0;
 		goto repeat;
 	}
+	// 到达此处说明等待队列头为空, 或者是当前进程
 	*p=NULL;
 	if (tmp)
 		tmp->state=0;
@@ -191,7 +192,7 @@ void wake_up(struct task_struct **p)
 {
 	if (p && *p) {
 		(**p).state=0;
-		*p=NULL;
+		*p=NULL; // 将等待队列头结点设置为NULL, 后面由各个进程唤醒之前等待的进程
 	}
 }
 
@@ -331,7 +332,7 @@ void do_timer(long cpl)
 	}
 	if (current_DOR & 0xf0)
 		do_floppy_timer();
-	if ((--current->counter)>0) return;
+	if ((--current->counter)>0) return; // 进程时间片减一, 如果时间片还没有用完, 那么就直接返回, 返回重新调度
 	current->counter=0;
 	if (!cpl) return;  // 如果是内核态, 那么就不能被调度(即内核态不会被timer重新调度)
 	schedule();
@@ -391,8 +392,8 @@ void sched_init(void)
 
 	if (sizeof(struct sigaction) != 16)
 		panic("Struct sigaction MUST be 16 bytes");
-	set_tss_desc(gdt+FIRST_TSS_ENTRY,&(init_task.task.tss));
-	set_ldt_desc(gdt+FIRST_LDT_ENTRY,&(init_task.task.ldt));
+	set_tss_desc(gdt+FIRST_TSS_ENTRY,&(init_task.task.tss)); // 设置idle进程在GDT的TSS描述符
+	set_ldt_desc(gdt+FIRST_LDT_ENTRY,&(init_task.task.ldt)); // 设置idle进程在GDT的LDT描述符
 	p = gdt+2+FIRST_TSS_ENTRY;
 	for(i=1;i<NR_TASKS;i++) { /* clear all task struct except 0 task */
 		task[i] = NULL;
@@ -403,6 +404,7 @@ void sched_init(void)
 	}
 /* Clear NT, so that we won't have troubles with that later on */
 	__asm__("pushfl ; andl $0xffffbfff,(%esp) ; popfl");
+	// 这里只加载一次, 以后由switch_to()函数切换进程时去TSS结构中获取
 	ltr(0);  // 加载任务0的TSS
 	lldt(0); // 加载任务0的LDT
 	outb_p(0x36,0x43);		/* binary, mode 3, LSB/MSB, ch 0 */

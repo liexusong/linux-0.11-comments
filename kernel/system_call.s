@@ -86,12 +86,15 @@ system_call:
 	pushl %edx
 	pushl %ecx		# push %ebx,%ecx,%edx as parameters
 	pushl %ebx		# to the system call
-	movl $0x10,%edx		# set up ds,es to kernel space
+	movl $0x10,%edx		# set up ds,es to kernel space (指向0-16M内存空间)
 	mov %dx,%ds
 	mov %dx,%es
-	movl $0x17,%edx		# fs points to local data space
+	# fs寄存器指向局部数据段(局部描述符表中的数据段描述符)
+	# 即指向执行本次系统调用的用户程序的数据段
+	movl $0x17,%edx		# fs points to local data space(本地数据空间)
 	mov %dx,%fs
-	call sys_call_table(,%eax,4)
+	# 开始调用系统调用的C函数
+	call sys_call_table(,%eax,4)  # bottom half
 	pushl %eax
 	movl current,%eax
 	cmpl $0,state(%eax)		# state
@@ -111,7 +114,7 @@ ret_from_sys_call:
 	notl %ecx
 	andl %ebx,%ecx
 	bsfl %ecx,%ecx
-	je 3f
+	je 3f                  # 此处是不需要处理信号
 	btrl %ecx,%ebx
 	movl %ebx,signal(%eax)
 	incl %ecx
@@ -207,7 +210,7 @@ sys_execve:
 
 .align 2
 sys_fork:
-	call find_empty_process
+	call find_empty_process   # 调用find_empty_process(), 在fork.c中
 	testl %eax,%eax
 	js 1f            # if sign flag is negative
 	push %gs
@@ -215,7 +218,7 @@ sys_fork:
 	pushl %edi
 	pushl %ebp
 	pushl %eax
-	call copy_process
+	call copy_process   # 调用copy_process(), 在fork.c中
 	addl $20,%esp
 1:	ret
 
