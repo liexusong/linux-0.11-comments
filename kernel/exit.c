@@ -24,14 +24,15 @@ void release(struct task_struct * p)
 		return;
 	for (i=1 ; i<NR_TASKS ; i++)
 		if (task[i]==p) {
-			task[i]=NULL;
-			free_page((long)p);
-			schedule();
+			task[i]=NULL;        // 清空p进程对应task数组的位置
+			free_page((long)p);  // 释放p进程描述符占用的内存页
+			schedule();          // 重新调度
 			return;
 		}
 	panic("trying to release non-existent task");
 }
 
+// 向p进程发送sig信号
 static inline int send_sig(long sig,struct task_struct * p,int priv)
 {
 	if (!p || sig<1 || sig>32)
@@ -43,6 +44,7 @@ static inline int send_sig(long sig,struct task_struct * p,int priv)
 	return 0;
 }
 
+// 向所有与当前进程具有相同回话的进程发送SIGHUP信号
 static void kill_session(void)
 {
 	struct task_struct **p = NR_TASKS + task;
@@ -80,6 +82,7 @@ int sys_kill(int pid,int sig)
 	return retval;
 }
 
+// 发送SIGCHLD信号给父进程pid
 static void tell_father(int pid)
 {
 	int i;
@@ -102,35 +105,41 @@ static void tell_father(int pid)
 int do_exit(long code)
 {
 	int i;
+	// 释放当前进程占用的内存页表项
 	free_page_tables(get_base(current->ldt[1]),get_limit(0x0f));
 	free_page_tables(get_base(current->ldt[2]),get_limit(0x17));
 	// send SIGCHLD signal to children process
+	// 找到当前进程的所有子进程, 把子进程的父进程替换成进程init
 	for (i=0 ; i<NR_TASKS ; i++)
 		if (task[i] && task[i]->father == current->pid) {
 			task[i]->father = 1;
+			// 这个情况发生在:
+			// 1) 当子进程退出了, 但是父进程没有调用wait()函数来释放子进程的资源
+			// 2) 此时就需要由init进程来进行wait()操作, 所以需要向init进程发送SIGCHLD信号
 			if (task[i]->state == TASK_ZOMBIE)
 				/* assumption task[1] is always init */
 				(void) send_sig(SIGCHLD, task[1], 1);
 		}
+	// 关闭打开的文件
 	for (i=0 ; i<NR_OPEN ; i++)
 		if (current->filp[i])
 			sys_close(i);
-	iput(current->pwd);
+	iput(current->pwd);        // 关闭工作目录inode
 	current->pwd=NULL;
-	iput(current->root);
+	iput(current->root);       // 关闭根目录inode
 	current->root=NULL;
-	iput(current->executable);
+	iput(current->executable); // 关闭执行文件inode
 	current->executable=NULL;
 	if (current->leader && current->tty >= 0)
 		tty_table[current->tty].pgrp = 0;
 	if (last_task_used_math == current)
 		last_task_used_math = NULL;
-	if (current->leader)
-		kill_session();
-	current->state = TASK_ZOMBIE;
-	current->exit_code = code;
-	tell_father(current->father);
-	schedule();
+	if (current->leader)          // 如果当前进程是领头进程
+		kill_session();           // 杀死回话所有的进程
+	current->state = TASK_ZOMBIE; // 设置进程状态为僵死状态
+	current->exit_code = code;    // 设置进程的退出码
+	tell_father(current->father); // 发送SIGCHLD信号给父进程
+	schedule();                   // 重新调度
 	return (-1);	/* just to suppress warnings */
 }
 
