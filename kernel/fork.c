@@ -46,8 +46,8 @@ int copy_mem(int nr,struct task_struct * p)
 	unsigned long old_data_base,new_data_base,data_limit;
 	unsigned long old_code_base,new_code_base,code_limit;
 
-	code_limit=get_limit(0x0f); // 代码段长度限制
-	data_limit=get_limit(0x17); // 数据段长度限制
+	code_limit=get_limit(0x0f); // 代码段长度限制(LDT中)
+	data_limit=get_limit(0x17); // 数据段长度限制(LDT中)
 	old_code_base = get_base(current->ldt[1]); // 被复制的进程代码段起始位置
 	old_data_base = get_base(current->ldt[2]); // 被复制的进程数据段起始位置
 	if (old_data_base != old_code_base)
@@ -88,7 +88,7 @@ int copy_process(
 	int i;
 	struct file *f;
 
-	// 申请一个空白页, 用于保存进程描述符
+	// 申请一个空白页(返回物理地址), 用于保存进程描述符
 	p = (struct task_struct *) get_free_page();
 	if (!p)
 		return -EAGAIN;
@@ -96,22 +96,22 @@ int copy_process(
 	// 完全复制父进程的所有字段(ldt也在这里被复制, 在copy_mem的时候设置ldt的基地址)
 	*p = *current;	/* NOTE! this doesn't copy the supervisor stack */
 	p->state = TASK_UNINTERRUPTIBLE;
-	p->pid = last_pid;
-	p->father = current->pid;
-	p->counter = p->priority;
-	p->signal = 0;
-	p->alarm = 0;
+	p->pid = last_pid;  // 设置进程pid
+	p->father = current->pid;  // 父进程pid
+	p->counter = p->priority;  // CPU可用时间片
+	p->signal = 0;  // 信号位图
+	p->alarm = 0;   // 时钟定时器
 	p->leader = 0;		/* process leadership doesn't inherit */
-	p->utime = p->stime = 0;
+	p->utime = p->stime = 0;   // 内核态和用户态运行的时间
 	p->cutime = p->cstime = 0;
-	p->start_time = jiffies;
+	p->start_time = jiffies;  // 进程创建的时间
 	// 设置TSS结构体
 	p->tss.back_link = 0;
-	p->tss.esp0 = PAGE_SIZE + (long) p;
-	p->tss.ss0 = 0x10;
+	p->tss.esp0 = PAGE_SIZE + (long) p; // 内核态堆栈(物理地址)
+	p->tss.ss0 = 0x10;                  // 内核数据段(0 ~ 16MB)
 	p->tss.eip = eip;
 	p->tss.eflags = eflags;
-	p->tss.eax = 0;
+	p->tss.eax = 0;  // 子进程fork()的返回值
 	p->tss.ecx = ecx;
 	p->tss.edx = edx;
 	p->tss.ebx = ebx;
@@ -144,14 +144,15 @@ int copy_process(
 		current->root->i_count++;
 	if (current->executable)
 		current->executable->i_count++;
+	// 设置TSS和LDT对应GDT项
 	set_tss_desc(gdt+(nr<<1)+FIRST_TSS_ENTRY,&(p->tss));
-	set_ldt_desc(gdt+(nr<<1)+FIRST_LDT_ENTRY,&(p->ldt)); // 设置GDT描述符, 指向task的ldt
+	set_ldt_desc(gdt+(nr<<1)+FIRST_LDT_ENTRY,&(p->ldt));
 	p->state = TASK_RUNNING;	/* do this last, just in case */
 	return last_pid;
 }
 
 /*
- * 找到一个空的task struct结构
+ * 找到一个空的task struct结构(返回其对应task数组的下标), 并且设置新的last_pid
  */
 int find_empty_process(void)
 {

@@ -50,12 +50,18 @@ struct i387_struct {
 	long	st_space[20];	/* 8*10 bytes for each FP-reg = 80 bytes */
 };
 
+/*
+ * 任务状态段(Task State Segment)结构
+ */
 struct tss_struct {
 	long	back_link;	/* 16 high bits zero */
+	// 特权级为0的堆栈信息
 	long	esp0;
 	long	ss0;		/* 16 high bits zero */
+	// 特权级为1的堆栈信息
 	long	esp1;
 	long	ss1;		/* 16 high bits zero */
+	// 特权级为2的堆栈信息
 	long	esp2;
 	long	ss2;		/* 16 high bits zero */
 	long	cr3;
@@ -66,15 +72,15 @@ struct tss_struct {
 	long	ebp;
 	long	esi;
 	long	edi;
-	long	es;		/* 16 high bits zero */
-	long	cs;		/* 16 high bits zero */
-	long	ss;		/* 16 high bits zero */
-	long	ds;		/* 16 high bits zero */
-	long	fs;		/* 16 high bits zero */
-	long	gs;		/* 16 high bits zero */
+	long	es;			/* 16 high bits zero */
+	long	cs;			/* 16 high bits zero */
+	long	ss;			/* 16 high bits zero */
+	long	ds;			/* 16 high bits zero */
+	long	fs;			/* 16 high bits zero */
+	long	gs;			/* 16 high bits zero */
 	long	ldt;		/* 16 high bits zero */
 	long	trace_bitmap;	/* bits: trace 0, bitmap 16-31 */
-	struct i387_struct i387;
+	struct i387_struct i387;  // 协处理器信息
 };
 
 struct task_struct {
@@ -87,7 +93,8 @@ struct task_struct {
 	long blocked;	/* bitmap of masked signals */
 /* various fields */
 	int exit_code;
-	unsigned long start_code,end_code,end_data,brk,start_stack;
+	unsigned long start_code, end_code,
+				  end_data, brk, start_stack;
 	long pid,father,pgrp,session,leader;
 	unsigned short uid,euid,suid;
 	unsigned short gid,egid,sgid;
