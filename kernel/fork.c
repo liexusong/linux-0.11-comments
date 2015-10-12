@@ -33,7 +33,7 @@ void verify_area(void * addr,int size)
 	start = (unsigned long) addr;
 	size += start & 0xfff;  // 真实要验证的内存大小
 	start &= 0xfffff000;    // 真实的开始内存地址
-	start += get_base(current->ldt[2]); /* 加上局部数据段的基地址 */
+	start += get_base(current->ldt[2]); /* 加上局部数据段的基地址(线性地址) */
 	while (size>0) {
 		size -= 4096;
 		write_verify(start);
@@ -75,15 +75,20 @@ int copy_mem(int nr,struct task_struct * p)
  * information (task[nr]) and sets up the necessary registers. It
  * also copies the data segment in it's entirety.
  */
-int copy_process(int nr,long ebp,long edi,long esi,long gs,long none,
-		long ebx,long ecx,long edx,
-		long fs,long es,long ds,
-		long eip,long cs,long eflags,long esp,long ss)
+int copy_process(
+		/* 下面参数由sys_fork()提供 */
+		int nr, long ebp, long edi, long esi, long gs,
+		/* 下面参数由system_call()中断提供 */
+		long none, long ebx, long ecx, long edx,
+		long fs, long es, long ds,
+		/* 由中断发生时自动压栈 */
+		long eip, long cs, long eflags, long esp, long ss)
 {
 	struct task_struct *p;
 	int i;
 	struct file *f;
 
+	// 申请一个空白页, 用于保存进程描述符
 	p = (struct task_struct *) get_free_page();
 	if (!p)
 		return -EAGAIN;
@@ -100,6 +105,7 @@ int copy_process(int nr,long ebp,long edi,long esi,long gs,long none,
 	p->utime = p->stime = 0;
 	p->cutime = p->cstime = 0;
 	p->start_time = jiffies;
+	// 设置TSS结构体
 	p->tss.back_link = 0;
 	p->tss.esp0 = PAGE_SIZE + (long) p;
 	p->tss.ss0 = 0x10;
@@ -121,6 +127,7 @@ int copy_process(int nr,long ebp,long edi,long esi,long gs,long none,
 	p->tss.gs = gs & 0xffff;
 	p->tss.ldt = _LDT(nr); // 指向GDT的偏移量
 	p->tss.trace_bitmap = 0x80000000;
+
 	if (last_task_used_math == current)
 		__asm__("clts ; fnsave %0"::"m" (p->tss.i387));
 	if (copy_mem(nr,p)) {

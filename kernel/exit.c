@@ -82,7 +82,7 @@ int sys_kill(int pid,int sig)
 	return retval;
 }
 
-// 发送SIGCHLD信号给父进程pid
+// 发送SIGCHLD信号给父进程pid, 只有exit()系统调用使用此函数
 static void tell_father(int pid)
 {
 	int i;
@@ -153,13 +153,14 @@ int sys_waitpid(pid_t pid,unsigned long * stat_addr, int options)
 	int flag, code;
 	struct task_struct ** p;
 
-	verify_area(stat_addr,4);
+	verify_area(stat_addr,4); // 确保stat_addr映射到物理内存
+
 repeat:
 	flag=0;
 	for(p = &LAST_TASK ; p > &FIRST_TASK ; --p) {
-		if (!*p || *p == current)
+		if (!*p || *p == current) // waitpid()不能使当前进程
 			continue;
-		if ((*p)->father != current->pid)
+		if ((*p)->father != current->pid) // waitpid()只能是子进程
 			continue;
 		if (pid>0) {
 			if ((*p)->pid != pid)
@@ -171,6 +172,7 @@ repeat:
 			if ((*p)->pgrp != -pid)
 				continue;
 		}
+
 		switch ((*p)->state) {
 			case TASK_STOPPED:
 				if (!(options & WUNTRACED))
@@ -186,21 +188,23 @@ repeat:
 				put_fs_long(code,stat_addr);
 				return flag;
 			default:
-				flag=1;
+				flag=1; // 表明找到相应的进程, 但是这些进程不是僵死状态
 				continue;
 		}
 	}
+
 	if (flag) {
-		if (options & WNOHANG)
+		if (options & WNOHANG) // 非阻塞的话, 立刻返回
 			return 0;
-		current->state=TASK_INTERRUPTIBLE;
+		current->state=TASK_INTERRUPTIBLE; // 否则设置为可中断睡眠
 		schedule();
+		// 如果没有收到除SIGCHLD以为的信号, 即重新做一次操作
 		if (!(current->signal &= ~(1<<(SIGCHLD-1))))
 			goto repeat;
 		else
-			return -EINTR;
+			return -EINTR; // 否则返回EINTR错误
 	}
-	return -ECHILD;
+	return -ECHILD; // 找不到符合条件的进程
 }
 
 

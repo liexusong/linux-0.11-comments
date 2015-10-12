@@ -211,8 +211,8 @@ sys_execve:
 .align 2
 sys_fork:
 	call find_empty_process   # 调用find_empty_process(), 在fork.c中
-	testl %eax,%eax
-	js 1f            # if sign flag is negative
+	testl %eax,%eax           # 是否找到一个空白的进程
+	js 1f                     # if sign flag is negative
 	push %gs
 	pushl %esi
 	pushl %edi
