@@ -27,7 +27,7 @@ struct request {
 	unsigned long sector;
 	unsigned long nr_sectors;
 	char * buffer;
-	struct task_struct * waiting;
+	struct task_struct * waiting; // 等待请求的进程
 	struct buffer_head * bh;
 	struct request * next;
 };
@@ -37,6 +37,10 @@ struct request {
  * reads always go before writes. This is natural: reads
  * are much more time-critical than writes.
  */
+// 电梯算法
+// 1) 读命令比写命令优先
+// 2) 小设备号比大设备号优先
+// 3) 小扇区号比大扇区号优先
 #define IN_ORDER(s1,s2) \
 ((s1)->cmd<(s2)->cmd || ((s1)->cmd==(s2)->cmd && \
 ((s1)->dev < (s2)->dev || ((s1)->dev == (s2)->dev && \
@@ -109,17 +113,18 @@ static inline void unlock_buffer(struct buffer_head * bh)
 static inline void end_request(int uptodate)
 {
 	DEVICE_OFF(CURRENT->dev);
-	if (CURRENT->bh) {
-		CURRENT->bh->b_uptodate = uptodate;
-		unlock_buffer(CURRENT->bh);
+	if (CURRENT->bh) { // 因为有些请求不需要缓冲区的(例如重置命令)
+		CURRENT->bh->b_uptodate = uptodate; // 设置缓冲块的标志为更新状态
+		unlock_buffer(CURRENT->bh); // 解锁缓冲块
 	}
 	if (!uptodate) {
 		printk(DEVICE_NAME " I/O error\n\r");
 		printk("dev %04x, block %d\n\r",CURRENT->dev,
 			CURRENT->bh->b_blocknr);
 	}
-	wake_up(&CURRENT->waiting);
-	wake_up(&wait_for_request);
+	wake_up(&CURRENT->waiting); // 唤醒等待请求的进程
+	wake_up(&wait_for_request); // 唤醒等待request结构的进程
+	// 释放当前请求结构, 并且指向一下个请求
 	CURRENT->dev = -1;
 	CURRENT = CURRENT->next;
 }

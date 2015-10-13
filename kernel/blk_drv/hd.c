@@ -70,7 +70,7 @@ extern void rd_load(void);
 /* This may be used only once, enforced by 'static int callable' */
 int sys_setup(void * BIOS)
 {
-	static int callable = 1;
+	static int callable = 1; // 防止二次调用
 	int i,drive;
 	unsigned char cmos_disks;
 	struct partition *p;
@@ -79,6 +79,9 @@ int sys_setup(void * BIOS)
 	if (!callable)
 		return -1;
 	callable = 0;
+
+	// 设置硬盘信息
+
 #ifndef HD_TYPE
 	for (drive=0 ; drive<2 ; drive++) {
 		hd_info[drive].cyl = *(unsigned short *) BIOS;
@@ -94,6 +97,7 @@ int sys_setup(void * BIOS)
 	else
 		NR_HD=1;
 #endif
+
 	for (i=0 ; i<NR_HD ; i++) {
 		hd[i*5].start_sect = 0;
 		hd[i*5].nr_sects = hd_info[i].head*
@@ -134,7 +138,7 @@ int sys_setup(void * BIOS)
 		hd[i*5].nr_sects = 0;
 	}
 	for (drive=0 ; drive<NR_HD ; drive++) {
-		if (!(bh = bread(0x300 + drive*5,0))) {
+		if (!(bh = bread(0x300 + drive*5,0))) { // 读取硬盘引导区数据
 			printk("Unable to read partition table of drive %d\n\r",
 				drive);
 			panic("");
@@ -144,12 +148,13 @@ int sys_setup(void * BIOS)
 			printk("Bad partition table on drive %d\n\r",drive);
 			panic("");
 		}
+		// 读取分区信息
 		p = 0x1BE + (void *)bh->b_data;
 		for (i=1;i<5;i++,p++) {
 			hd[i+5*drive].start_sect = p->start_sect;
 			hd[i+5*drive].nr_sects = p->nr_sects;
 		}
-		brelse(bh);
+		brelse(bh); // 释放缓冲区
 	}
 	if (NR_HD)
 		printk("Partition table%s ok.\n\r",(NR_HD>1)?"s":"");
@@ -158,6 +163,7 @@ int sys_setup(void * BIOS)
 	return (0);
 }
 
+// 查询硬盘控制器是否准备
 static int controller_ready(void)
 {
 	int retries=10000;
@@ -166,6 +172,7 @@ static int controller_ready(void)
 	return (retries);
 }
 
+// 判断硬盘是否处理正确
 static int win_result(void)
 {
 	int i=inb_p(HD_STATUS);
@@ -177,19 +184,32 @@ static int win_result(void)
 	return (1);
 }
 
-static void hd_out(unsigned int drive,unsigned int nsect,unsigned int sect,
-		unsigned int head,unsigned int cyl,unsigned int cmd,
-		void (*intr_addr)(void))
+// 向硬盘控制器发送命令
+/*
+ * drive: 设备号
+ * nsect: 扇区数
+ * sect: 开始扇区号
+ * cmd: 命令
+ * intr_addr: 中断发生后回调的C函数
+ */
+static void hd_out(unsigned int drive,
+		unsigned int nsect,unsigned int sect,
+		unsigned int head,unsigned int cyl,
+		unsigned int cmd,void (*intr_addr)(void))
 {
 	register int port asm("dx");
 
+	// 只支持2个硬盘, 所以设备号不能大于1(0,1)
 	if (drive>1 || head>15)
 		panic("Trying to write bad sector");
-	if (!controller_ready())
+	if (!controller_ready()) // 控制器是否准备好?
 		panic("HD controller not ready");
-	do_hd = intr_addr;
+
+	do_hd = intr_addr; // 中断调用的C函数
+
 	outb_p(hd_info[drive].ctl,HD_CMD);
-	port=HD_DATA;
+
+	port=HD_DATA; // HD_DATA = 0x1f0
 	outb_p(hd_info[drive].wpcom>>2,++port);
 	outb_p(nsect,++port);
 	outb_p(sect,++port);
@@ -219,7 +239,7 @@ static void reset_controller(void)
 	int	i;
 
 	outb(4,HD_CMD);
-	for(i = 0; i < 100; i++) nop();
+	for(i = 0; i < 100; i++) nop(); // 延时作用
 	outb(hd_info[0].ctl & 0x0f ,HD_CMD);
 	if (drive_busy())
 		printk("HD-controller still busy\n\r");
@@ -254,11 +274,12 @@ static void read_intr(void)
 		do_hd_request();
 		return;
 	}
-	port_read(HD_DATA,CURRENT->buffer,256);
+
+	port_read(HD_DATA,CURRENT->buffer,256); // 从控制器缓冲区读取一个扇区的数据
 	CURRENT->errors = 0;
 	CURRENT->buffer += 512;
 	CURRENT->sector++;
-	if (--CURRENT->nr_sectors) {
+	if (--CURRENT->nr_sectors) { // 数据没有读取完成, 继续进行
 		do_hd = &read_intr;
 		return;
 	}
@@ -281,7 +302,7 @@ static void write_intr(void)
 		return;
 	}
 	end_request(1);
-	do_hd_request();
+	do_hd_request(); // 处理下一个请求
 }
 
 static void recal_intr(void)
@@ -299,12 +320,15 @@ void do_hd_request(void)
 	unsigned int nsect;
 
 	INIT_REQUEST;
-	dev = MINOR(CURRENT->dev);
+
+	dev = MINOR(CURRENT->dev); // 次设备号(分区号)
 	block = CURRENT->sector;
 	if (dev >= 5*NR_HD || block+2 > hd[dev].nr_sects) {
 		end_request(0);
 		goto repeat;
 	}
+
+	// 计算磁道号, 磁头号和柱面号
 	block += hd[dev].start_sect;
 	dev /= 5;
 	__asm__("divl %4":"=a" (block),"=d" (sec):"0" (block),"1" (0),
@@ -324,17 +348,21 @@ void do_hd_request(void)
 		hd_out(dev,hd_info[CURRENT_DEV].sect,0,0,0,
 			WIN_RESTORE,&recal_intr);
 		return;
-	}	
-	if (CURRENT->cmd == WRITE) {
+	}
+
+	if (CURRENT->cmd == WRITE) { // 1) 写命令
 		hd_out(dev,nsect,sec,head,cyl,WIN_WRITE,&write_intr);
+		// 查询控制器是否同意接受写数据操作
 		for(i=0 ; i<3000 && !(r=inb_p(HD_STATUS)&DRQ_STAT) ; i++)
 			/* nothing */ ;
 		if (!r) {
 			bad_rw_intr();
 			goto repeat;
 		}
+		// 写到控制器缓冲区(CURRENT->buffer是线性地址, 但被映射到相同的物理地址中)
 		port_write(HD_DATA,CURRENT->buffer,256);
-	} else if (CURRENT->cmd == READ) {
+
+	} else if (CURRENT->cmd == READ) { // 2) 读命令
 		hd_out(dev,nsect,sec,head,cyl,WIN_READ,&read_intr);
 	} else
 		panic("unknown hd-command");
@@ -342,8 +370,10 @@ void do_hd_request(void)
 
 void hd_init(void)
 {
+	// 设置设备驱动函数
 	blk_dev[MAJOR_NR].request_fn = DEVICE_REQUEST;
-	set_intr_gate(0x2E,&hd_interrupt);
+	set_intr_gate(0x2E,&hd_interrupt); // 设置中断回调函数
+	// 允许硬盘中断
 	outb_p(inb_p(0x21)&0xfb,0x21);
 	outb(inb_p(0xA1)&0xbf,0xA1);
 }
