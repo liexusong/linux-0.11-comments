@@ -223,7 +223,7 @@ sys_fork:
 1:	ret
 
 hd_interrupt:
-	pushl %eax
+	pushl %eax     # 先保存寄存器的值
 	pushl %ecx
 	pushl %edx
 	push %ds

@@ -43,7 +43,12 @@ static int reset = 1;
  *  This struct defines the HD's and their types.
  */
 struct hd_i_struct {
-	int head,sect,cyl,wpcom,lzone,ctl;
+	int head,   // 磁头数
+		sect,   // 每磁道扇区数
+		cyl,    // 柱面数
+		wpcom,  // 写前补偿柱面号
+		lzone,  // 磁头着陆区柱面号
+		ctl;    // 控制字节
 	};
 #ifdef HD_TYPE
 struct hd_i_struct hd_info[] = { HD_TYPE };
@@ -54,9 +59,9 @@ static int NR_HD = 0;
 #endif
 
 static struct hd_struct {
-	long start_sect;
-	long nr_sects;
-} hd[5*MAX_HD]={{0,0},};
+	long start_sect;     // 分区在硬盘的物理起始扇区
+	long nr_sects;       // 分区扇区数
+} hd[5*MAX_HD]={{0,0},}; // 分区信息
 
 #define port_read(port,buf,nr) \
 __asm__("cld;rep;insw"::"d" (port),"D" (buf),"c" (nr))
@@ -186,9 +191,11 @@ static int win_result(void)
 
 // 向硬盘控制器发送命令
 /*
- * drive: 设备号
+ * drive: 硬盘号(0-1)
  * nsect: 扇区数
  * sect: 开始扇区号
+ * head: 磁头号
+ * cyl: 柱面号
  * cmd: 命令
  * intr_addr: 中断发生后回调的C函数
  */
@@ -322,19 +329,24 @@ void do_hd_request(void)
 	INIT_REQUEST;
 
 	dev = MINOR(CURRENT->dev); // 次设备号(分区号)
-	block = CURRENT->sector;
+	block = CURRENT->sector;   // 要读取的扇区
 	if (dev >= 5*NR_HD || block+2 > hd[dev].nr_sects) {
 		end_request(0);
 		goto repeat;
 	}
 
 	// 计算磁道号, 磁头号和柱面号
-	block += hd[dev].start_sect;
-	dev /= 5;
+
+	block += hd[dev].start_sect; // 加上分区的起始扇区才得到磁盘的绝对扇区
+
+	dev /= 5; // 硬盘号(0或者1)
+
+	// 这里计算出扇区号, 磁头号和柱面号
 	__asm__("divl %4":"=a" (block),"=d" (sec):"0" (block),"1" (0),
 		"r" (hd_info[dev].sect));
 	__asm__("divl %4":"=a" (cyl),"=d" (head):"0" (block),"1" (0),
 		"r" (hd_info[dev].head));
+
 	sec++;
 	nsect = CURRENT->nr_sectors;
 	if (reset) {
