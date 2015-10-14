@@ -82,7 +82,7 @@ static void add_request(struct blk_dev_struct * dev, struct request * req)
 			break;
 	req->next=tmp->next;
 	tmp->next=req;
-	sti();
+	sti(); // 打开中断
 }
 
 static void make_request(int major,int rw, struct buffer_head * bh)

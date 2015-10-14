@@ -272,7 +272,7 @@ void brelse(struct buffer_head * buf)
 {
 	if (!buf)
 		return;
-	wait_on_buffer(buf); // 等待缓冲块被解锁
+	wait_on_buffer(buf); // 等待缓冲块被解锁(等待其他进程释放)
 	if (!(buf->b_count--))
 		panic("Trying to free free buffer");
 	wake_up(&buffer_wait);
