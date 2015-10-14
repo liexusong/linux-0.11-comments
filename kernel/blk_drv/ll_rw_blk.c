@@ -66,7 +66,7 @@ static void add_request(struct blk_dev_struct * dev, struct request * req)
 	struct request * tmp;
 
 	req->next = NULL;
-	cli();
+	cli();  // 防止IO中断影响请求队列
 	if (req->bh)
 		req->bh->b_dirt = 0;
 	if (!(tmp = dev->current_request)) {
@@ -102,7 +102,7 @@ static void make_request(int major,int rw, struct buffer_head * bh)
 	}
 	if (rw!=READ && rw!=WRITE)
 		panic("Bad block dev command, must be R/W/RA/WA");
-	lock_buffer(bh);
+	lock_buffer(bh); // 锁着缓冲块
 	if ((rw == WRITE && !bh->b_dirt) || (rw == READ && bh->b_uptodate)) {
 		unlock_buffer(bh);
 		return;

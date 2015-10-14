@@ -36,6 +36,7 @@ static struct buffer_head * free_list;
 static struct task_struct * buffer_wait = NULL;
 int NR_BUFFERS = 0;
 
+// 等待缓冲块被解锁
 static inline void wait_on_buffer(struct buffer_head * bh)
 {
 	// 关闭当前进程的所有IO中断.
@@ -46,6 +47,7 @@ static inline void wait_on_buffer(struct buffer_head * bh)
 	// 这就会发生错误, 因为这时候bh->b_lock已经变成了0,
 	// 所以此时sleep_on()当前进程就不会被唤醒.
 	// 所以此处必须先关闭中断, 然后把进程添加到等待队列中.
+	// 当内核调度到其他进程的时候会打开IO中断.
 	cli();
 	while (bh->b_lock)
 		sleep_on(&bh->b_wait); // 在内核态睡眠
@@ -221,6 +223,7 @@ struct buffer_head * getblk(int dev,int block)
 repeat:
 	if ((bh = get_hash_table(dev,block)))
 		return bh;
+
 	tmp = free_list;
 	do {
 		if (tmp->b_count)
@@ -232,13 +235,17 @@ repeat:
 		}
 /* and repeat until we find something good */
 	} while ((tmp = tmp->b_next_free) != free_list);
+
 	if (!bh) {
 		sleep_on(&buffer_wait);
 		goto repeat;
 	}
+
 	wait_on_buffer(bh);
+
 	if (bh->b_count)
 		goto repeat;
+
 	while (bh->b_dirt) {
 		sync_dev(bh->b_dev);
 		wait_on_buffer(bh);
@@ -265,7 +272,7 @@ void brelse(struct buffer_head * buf)
 {
 	if (!buf)
 		return;
-	wait_on_buffer(buf);
+	wait_on_buffer(buf); // 等待缓冲块被解锁
 	if (!(buf->b_count--))
 		panic("Trying to free free buffer");
 	wake_up(&buffer_wait);
@@ -283,9 +290,9 @@ struct buffer_head * bread(int dev,int block)
 		panic("bread: getblk returned NULL\n");
 	if (bh->b_uptodate)
 		return bh;
-	ll_rw_block(READ,bh);
-	wait_on_buffer(bh);
-	if (bh->b_uptodate)
+	ll_rw_block(READ,bh); // 发送IO命令
+	wait_on_buffer(bh);   // 等待IO完成
+	if (bh->b_uptodate)   // 如果IO命令执行成功
 		return bh;
 	brelse(bh);
 	return NULL;
@@ -389,4 +396,4 @@ void buffer_init(long buffer_end)
 	h->b_next_free = free_list;
 	for (i=0;i<NR_HASH;i++)
 		hash_table[i]=NULL;
-}	
+}
