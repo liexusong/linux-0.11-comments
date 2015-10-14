@@ -41,6 +41,16 @@ struct blk_dev_struct blk_dev[NR_BLK_DEV] = {
 
 static inline void lock_buffer(struct buffer_head * bh)
 {
+	// 防止因为硬盘中断而导致的竞争(数据不一致)
+	// ========================================
+	// 这种情况出现在:
+	// 当b_lock为1的时候去执行sleep_on()操作,
+	// 但这时候硬盘处理完毕了发生中断,
+	// 而此时中断处理会把b_lock设置为0, 并且唤醒等待的进程
+	// 但此时当前进程还没有被添加到睡眠队列中,
+	// 所以会导致当前进程不会被唤醒的情况,
+	// 关闭中断后可以防止此情况出现,
+	// 也就是说在执行sleep_on()时不会被硬盘中断打断.
 	cli();
 	while (bh->b_lock)
 		sleep_on(&bh->b_wait);

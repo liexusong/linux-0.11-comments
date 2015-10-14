@@ -11,7 +11,7 @@
  *
  * NOTE: This code handles signal-recognition, which happens every time
  * after a timer-interrupt and after each system call. Ordinary interrupts
- * don't handle signal-recognition, as that would clutter them up totally
+ * dont handle signal-recognition, as that would clutter them up totally
  * unnecessarily.
  *
  * Stack layout in 'ret_from_system_call':
@@ -235,7 +235,7 @@ hd_interrupt:
 	movl $0x17,%eax
 	mov %ax,%fs
 	movb $0x20,%al
-	outb %al,$0xA0		# EOI to interrupt controller #1
+	outb %al,$0xA0		# EOI to interrupt controller #1 (运行新的硬盘中断)
 	jmp 1f			# give port chance to breathe
 1:	jmp 1f
 1:	xorl %edx,%edx

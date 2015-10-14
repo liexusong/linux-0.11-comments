@@ -13,6 +13,11 @@
  *  modified by Drew Eckhardt to check nr of hd's from the CMOS.
  */
 
+// 特别说明:
+// 因为处理硬盘中断后半部处理时, 由于内核只有一个硬盘请求在处理,
+// 所以不会发生硬盘中断重入的情况(就是硬盘中断不会嵌套),
+// 保证了某一时刻只有一个硬盘中断被处理.
+
 #include <linux/config.h>
 #include <linux/sched.h>
 #include <linux/fs.h>
@@ -26,8 +31,8 @@
 #include "blk.h"
 
 #define CMOS_READ(addr) ({ \
-outb_p(0x80|addr,0x70); \
-inb_p(0x71); \
+outb_p(0x80|addr,0x70);    \
+inb_p(0x71);               \
 })
 
 /* Max read/write errors/sector */
@@ -49,7 +54,7 @@ struct hd_i_struct {
 		wpcom,  // 写前补偿柱面号
 		lzone,  // 磁头着陆区柱面号
 		ctl;    // 控制字节
-	};
+};
 #ifdef HD_TYPE
 struct hd_i_struct hd_info[] = { HD_TYPE };
 #define NR_HD ((sizeof (hd_info))/(sizeof (struct hd_i_struct)))
@@ -290,8 +295,8 @@ static void read_intr(void)
 		do_hd = &read_intr;
 		return;
 	}
-	end_request(1);
-	do_hd_request();
+	end_request(1);   // 完成当前一个请求
+	do_hd_request();  // 当前请求完成了, 接下来处理下一个请求, 发生下一个请求给硬盘控制器
 }
 
 static void write_intr(void)
