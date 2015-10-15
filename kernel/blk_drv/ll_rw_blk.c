@@ -128,6 +128,10 @@ repeat:
  * we want some room for reads: they take precedence. The last third
  * of the requests are only for reads.
  */
+// 这里有bug, 当找不到空闲的请求, 但还没有执行sleep_on()的时候发生了硬盘中断
+// 这时候硬盘中断程序会把当前请求设置为空闲并且唤醒等待空闲请求的进程,
+// 但此时当前进程并没有添加到等待队列中, 所以当回到本流程的时候会把当前进程添加到等待队列中,
+// 然后睡眠了, 所以此时就会出现当前进程一直睡眠不会被唤醒的情况
 	if (rw == READ)
 		req = request+NR_REQUEST;
 	else
