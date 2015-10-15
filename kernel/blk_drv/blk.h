@@ -110,6 +110,8 @@ static inline void unlock_buffer(struct buffer_head * bh)
 	wake_up(&bh->b_wait);
 }
 
+// 减少硬盘读写请求的只有这个函数
+// 而这个函数只有硬盘中断发生时才会被调用
 static inline void end_request(int uptodate)
 {
 	DEVICE_OFF(CURRENT->dev);
