@@ -224,7 +224,7 @@ repeat:
 	if ((bh = get_hash_table(dev,block)))
 		return bh;
 
-	tmp = free_list;
+	tmp = free_list; // 获取一个空闲的缓冲块
 	do {
 		if (tmp->b_count) // 如果有其他进程在使用此缓冲块, 跳过
 			continue;
@@ -236,14 +236,18 @@ repeat:
 /* and repeat until we find something good */
 	} while ((tmp = tmp->b_next_free) != free_list);
 
-	if (!bh) {
+	if (!bh) { // 如果没有空闲的缓冲块, 等待
 		sleep_on(&buffer_wait);
 		goto repeat;
 	}
 
-	wait_on_buffer(bh); // 等待当前缓冲块解锁(等待更新完毕)
+	// 当缓冲块没有进程在使用,
+	// 但此缓冲块在同步的时候,
+	// 此缓冲块的b_count为零, 但b_lock就不为零,
+	// 所以此时需要等待同步完成.
+	wait_on_buffer(bh);
 
-	if (bh->b_count) // 又被其他进程使用了, 重复上面操作
+	if (bh->b_count) // 在等待的过程中又被其他进程使用了, 重复上面操作
 		goto repeat;
 
 	while (bh->b_dirt) {

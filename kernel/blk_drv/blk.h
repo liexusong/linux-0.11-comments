@@ -113,9 +113,9 @@ static inline void unlock_buffer(struct buffer_head * bh)
 static inline void end_request(int uptodate)
 {
 	DEVICE_OFF(CURRENT->dev);
-	if (CURRENT->bh) { // 因为有些请求不需要缓冲区的(例如重置命令)
+	if (CURRENT->bh) {                      // 因为有些请求不需要缓冲区的(例如重置命令)
 		CURRENT->bh->b_uptodate = uptodate; // 设置缓冲块的标志为更新状态
-		unlock_buffer(CURRENT->bh); // 解锁缓冲块
+		unlock_buffer(CURRENT->bh);         // 解锁缓冲块
 	}
 	if (!uptodate) {
 		printk(DEVICE_NAME " I/O error\n\r");
@@ -129,15 +129,15 @@ static inline void end_request(int uptodate)
 	CURRENT = CURRENT->next;
 }
 
-#define INIT_REQUEST \
-repeat: \
-	if (!CURRENT) \
-		return; \
-	if (MAJOR(CURRENT->dev) != MAJOR_NR) \
+#define INIT_REQUEST                                   \
+repeat:                                                \
+	if (!CURRENT)                                      \
+		return;                                        \
+	if (MAJOR(CURRENT->dev) != MAJOR_NR)               \
 		panic(DEVICE_NAME ": request list destroyed"); \
-	if (CURRENT->bh) { \
-		if (!CURRENT->bh->b_lock) \
-			panic(DEVICE_NAME ": block not locked"); \
+	if (CURRENT->bh) {                                 \
+		if (!CURRENT->bh->b_lock)                      \
+			panic(DEVICE_NAME ": block not locked");   \
 	}
 
 #endif
