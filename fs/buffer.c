@@ -201,7 +201,7 @@ struct buffer_head * get_hash_table(int dev, int block)
 		if (!(bh=find_buffer(dev,block)))
 			return NULL;
 		bh->b_count++;
-		wait_on_buffer(bh);
+		wait_on_buffer(bh); // 等待缓冲块被解锁(也就是缓冲块不在更新中)
 		if (bh->b_dev == dev && bh->b_blocknr == block)
 			return bh;
 		bh->b_count--;
@@ -226,7 +226,7 @@ repeat:
 
 	tmp = free_list;
 	do {
-		if (tmp->b_count)
+		if (tmp->b_count) // 如果有其他进程在使用此缓冲块, 跳过
 			continue;
 		if (!bh || BADNESS(tmp)<BADNESS(bh)) {
 			bh = tmp;
@@ -241,30 +241,37 @@ repeat:
 		goto repeat;
 	}
 
-	wait_on_buffer(bh);
+	wait_on_buffer(bh); // 等待当前缓冲块解锁(等待更新完毕)
 
-	if (bh->b_count)
+	if (bh->b_count) // 又被其他进程使用了, 重复上面操作
 		goto repeat;
 
 	while (bh->b_dirt) {
-		sync_dev(bh->b_dev);
-		wait_on_buffer(bh);
-		if (bh->b_count)
+		sync_dev(bh->b_dev); // 同步到硬盘 (这里才是触发写操作的地方)
+		wait_on_buffer(bh);  // 等待同步完成
+		if (bh->b_count)     // Oh! 又被其他进程占用了
 			goto repeat;
 	}
+
 /* NOTE!! While we slept waiting for this block, somebody else might */
 /* already have added "this" block to the cache. check it */
+// 此处的意思是: 在等待的过程中有可能被其他进程添加到缓冲区中
 	if (find_buffer(dev,block))
 		goto repeat;
+
 /* OK, FINALLY we know that this buffer is the only one of it's kind, */
 /* and that it's unused (b_count=0), unlocked (b_lock=0), and clean */
 	bh->b_count=1;
 	bh->b_dirt=0;
 	bh->b_uptodate=0;
+
 	remove_from_queues(bh);
+
 	bh->b_dev=dev;
 	bh->b_blocknr=block;
+
 	insert_into_queues(bh);
+
 	return bh;
 }
 
@@ -288,7 +295,7 @@ struct buffer_head * bread(int dev,int block)
 
 	if (!(bh=getblk(dev,block)))
 		panic("bread: getblk returned NULL\n");
-	if (bh->b_uptodate)
+	if (bh->b_uptodate)   // 如果数据是最新的 (直接返回)
 		return bh;
 	ll_rw_block(READ,bh); // 发送IO命令
 	wait_on_buffer(bh);   // 等待IO完成
@@ -369,7 +376,7 @@ void buffer_init(long buffer_end)
 	void * b;
 	int i;
 
-	if (buffer_end == 1<<20)
+	if (buffer_end == 1<<20) // 1M
 		b = (void *) (640*1024);
 	else
 		b = (void *) buffer_end;
@@ -387,7 +394,7 @@ void buffer_init(long buffer_end)
 		h->b_next_free = h+1;
 		h++;
 		NR_BUFFERS++;
-		if (b == (void *) 0x100000)
+		if (b == (void *) 0x100000)  // 跳过显存
 			b = (void *) 0xA0000;
 	}
 	h--;

@@ -23,7 +23,7 @@ int file_read(struct m_inode * inode, struct file * filp, char * buf, int count)
 		return 0;
 	while (left) {
 		if ((nr = bmap(inode,(filp->f_pos)/BLOCK_SIZE))) {
-			if (!(bh=bread(inode->i_dev,nr)))
+			if (!(bh=bread(inode->i_dev,nr))) // blocking!!!
 				break;
 		} else
 			bh = NULL;
@@ -34,7 +34,7 @@ int file_read(struct m_inode * inode, struct file * filp, char * buf, int count)
 		if (bh) {
 			char * p = nr + bh->b_data;
 			while (chars-->0)
-				put_fs_byte(*(p++),buf++);
+				put_fs_byte(*(p++),buf++); // 复制到用户空间
 			brelse(bh);
 		} else {
 			while (chars-->0)
@@ -64,7 +64,7 @@ int file_write(struct m_inode * inode, struct file * filp, char * buf, int count
 	while (i<count) {
 		if (!(block = create_block(inode,pos/BLOCK_SIZE)))
 			break;
-		if (!(bh=bread(inode->i_dev,block)))
+		if (!(bh=bread(inode->i_dev,block))) // 先把磁盘的数据读入到内存中
 			break;
 		c = pos % BLOCK_SIZE;
 		p = c + bh->b_data;
@@ -79,7 +79,7 @@ int file_write(struct m_inode * inode, struct file * filp, char * buf, int count
 		i += c;
 		while (c-->0)
 			*(p++) = get_fs_byte(buf++);
-		brelse(bh);
+		brelse(bh); // 释放缓冲块
 	}
 	inode->i_mtime = CURRENT_TIME;
 	if (!(filp->f_flags & O_APPEND)) {

@@ -114,11 +114,11 @@ void main(void)		/* This really IS void, no error here. */
 	if (memory_end > 16*1024*1024) // 如果大于16M, 只支持16M的内存
 		memory_end = 16*1024*1024;
 	if (memory_end > 12*1024*1024) 
-		buffer_memory_end = 4*1024*1024;
+		buffer_memory_end = 4*1024*1024;  // 4M
 	else if (memory_end > 6*1024*1024)
-		buffer_memory_end = 2*1024*1024;
+		buffer_memory_end = 2*1024*1024;  // 2M
 	else
-		buffer_memory_end = 1*1024*1024;
+		buffer_memory_end = 1*1024*1024;  // 1M
 	main_memory_start = buffer_memory_end;
 #ifdef RAMDISK
 	main_memory_start += rd_init(main_memory_start, RAMDISK*1024);
