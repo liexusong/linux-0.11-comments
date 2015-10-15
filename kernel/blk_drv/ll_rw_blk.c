@@ -39,10 +39,16 @@ struct blk_dev_struct blk_dev[NR_BLK_DEV] = {
 	{ NULL, NULL }		/* dev lp */
 };
 
+
+// 锁住缓冲块: 只有在make_request()处被调用,
+// 而make_request()被ll_rw_block()调用
+// 锁住缓冲块的目的是防止中断导致的竞争情况
 static inline void lock_buffer(struct buffer_head * bh)
 {
-	// 防止因为硬盘中断而导致的竞争(数据不一致)
-	// ========================================
+	// 关闭所有IO中断: 防止因为硬盘中断而导致的竞争(数据不一致)
+	// 因为硬盘中断也会修改缓冲块的b_lock字段,
+	// 而硬盘中断是随机发生的(也就是会导致竞争情况出现)
+	// ===============
 	// 这种情况出现在:
 	// 当b_lock为1的时候去执行sleep_on()操作,
 	// 但这时候硬盘处理完毕了发生中断,
@@ -112,7 +118,7 @@ static void make_request(int major,int rw, struct buffer_head * bh)
 	}
 	if (rw!=READ && rw!=WRITE)
 		panic("Bad block dev command, must be R/W/RA/WA");
-	lock_buffer(bh); // 锁着缓冲块
+	lock_buffer(bh); // 锁着缓冲块, 防止其他进程对其进行修改
 	if ((rw == WRITE && !bh->b_dirt) || (rw == READ && bh->b_uptodate)) {
 		unlock_buffer(bh);
 		return;

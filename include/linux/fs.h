@@ -33,8 +33,8 @@ void buffer_init(long buffer_end);
 #define MAJOR(a) (((unsigned)(a))>>8)
 #define MINOR(a) ((a)&0xff)
 
-#define NAME_LEN 14
-#define ROOT_INO 1
+#define NAME_LEN 14   // 文件名/文件夹名长度
+#define ROOT_INO 1    // 根inode号
 
 #define I_MAP_SLOTS 8
 #define Z_MAP_SLOTS 8
@@ -66,13 +66,13 @@ __asm__("incl %0\n\tandl $4095,%0"::"m" (head))
 typedef char buffer_block[BLOCK_SIZE];
 
 struct buffer_head {
-	char * b_data;			/* pointer to data block (1024 bytes) */
+	char * b_data;				/* pointer to data block (1024 bytes) */
 	unsigned long b_blocknr;	/* block number */
 	unsigned short b_dev;		/* device (0 = free) */
 	unsigned char b_uptodate;
 	unsigned char b_dirt;		/* 0-clean,1-dirty */
 	unsigned char b_count;		/* users using this block */
-	unsigned char b_lock;		/* 0 - ok, 1 -locked */
+	unsigned char b_lock;		/* 0 - ok, 1 -locked (一般用户调用系统调用时被锁住, 硬盘中断时被解锁) */
 	struct task_struct * b_wait;
 	struct buffer_head * b_prev;
 	struct buffer_head * b_next;
@@ -154,9 +154,10 @@ struct d_super_block {
 	unsigned short s_magic;
 };
 
+// 文件/目录结构
 struct dir_entry {
-	unsigned short inode;
-	char name[NAME_LEN];
+	unsigned short inode; // 目录对应的inode
+	char name[NAME_LEN];  // 名字
 };
 
 extern struct m_inode inode_table[NR_INODE];

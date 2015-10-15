@@ -313,7 +313,7 @@ static void write_intr(void)
 		port_write(HD_DATA,CURRENT->buffer,256);
 		return;
 	}
-	end_request(1);
+	end_request(1);  // 完成当前一个请求
 	do_hd_request(); // 处理下一个请求
 }
 

@@ -30,7 +30,7 @@ extern int end;
 extern void put_super(int);
 extern void invalidate_inodes(int);
 
-struct buffer_head * start_buffer = (struct buffer_head *) &end;
+struct buffer_head * start_buffer = (struct buffer_head *) &end; // 内核模块空间之后
 struct buffer_head * hash_table[NR_HASH];
 static struct buffer_head * free_list;
 static struct task_struct * buffer_wait = NULL;
