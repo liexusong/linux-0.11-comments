@@ -668,7 +668,7 @@ int sys_unlink(const char * name)
 	struct buffer_head * bh;
 	struct dir_entry * de;
 
-	if (!(dir = dir_namei(name,&namelen,&basename)))
+	if (!(dir = dir_namei(name,&namelen,&basename))) // 找到文件夹对应的inode
 		return -ENOENT;
 	if (!namelen) {
 		iput(dir);

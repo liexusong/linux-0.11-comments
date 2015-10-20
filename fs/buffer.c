@@ -69,11 +69,13 @@ int sys_sync(void)
 	return 0;
 }
 
+// 同步dev设备对应的缓冲块, 把他们写入到磁盘
 int sync_dev(int dev)
 {
 	int i;
 	struct buffer_head * bh;
 
+	// 第一次同步
 	bh = start_buffer;
 	for (i=0 ; i<NR_BUFFERS ; i++,bh++) {
 		if (bh->b_dev != dev)
@@ -82,6 +84,8 @@ int sync_dev(int dev)
 		if (bh->b_dev == dev && bh->b_dirt)
 			ll_rw_block(WRITE,bh);
 	}
+
+	// 第二次同步(就是inode的数据写到缓冲块的之后)
 	sync_inodes();
 	bh = start_buffer;
 	for (i=0 ; i<NR_BUFFERS ; i++,bh++) {
