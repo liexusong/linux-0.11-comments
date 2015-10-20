@@ -292,7 +292,9 @@ struct m_inode * iget(int dev,int nr)
 
 		inode->i_count++;
 
-		if (inode->i_mount) { // 如果此inode挂载了一个文件系统
+		// 如果此inode挂载了一个文件系统(只能是文件夹)
+		// 那么把inode切换到挂载的设备根i节点
+		if (inode->i_mount) {
 			int i;
 
 			for (i = 0 ; i<NR_SUPER ; i++)
