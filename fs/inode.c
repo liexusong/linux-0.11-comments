@@ -266,6 +266,7 @@ struct m_inode * get_pipe_inode(void)
 	return inode;
 }
 
+// 根据设备号与i节点号获取inode
 struct m_inode * iget(int dev,int nr)
 {
 	struct m_inode * inode, * empty;
@@ -293,7 +294,7 @@ struct m_inode * iget(int dev,int nr)
 		inode->i_count++;
 
 		// 如果此inode挂载了一个文件系统(只能是文件夹)
-		// 那么把inode切换到挂载的设备根i节点
+		// 那么把inode切换到挂载的文件系统根i节点
 		if (inode->i_mount) {
 			int i;
 
@@ -313,10 +314,12 @@ struct m_inode * iget(int dev,int nr)
 			inode = inode_table;
 			continue;
 		}
+
 		if (empty)
 			iput(empty);
 		return inode;
 	}
+
 	if (!empty)
 		return (NULL);
 	inode=empty;
