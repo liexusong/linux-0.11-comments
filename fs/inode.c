@@ -333,6 +333,7 @@ static void read_inode(struct m_inode * inode)
 	lock_inode(inode); // 先锁着inode
 	if (!(sb=get_super(inode->i_dev)))
 		panic("trying to read inode without dev");
+	// 计算inode所在的磁盘块
 	block = 2 + sb->s_imap_blocks + sb->s_zmap_blocks +
 		(inode->i_num-1)/INODES_PER_BLOCK;
 	if (!(bh=bread(inode->i_dev,block))) // 因为这里有可能会被睡眠
