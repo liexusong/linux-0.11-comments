@@ -122,22 +122,22 @@ struct file {
 };
 
 struct super_block {
-	unsigned short s_ninodes;
-	unsigned short s_nzones;
-	unsigned short s_imap_blocks;
-	unsigned short s_zmap_blocks;
-	unsigned short s_firstdatazone;
+	unsigned short s_ninodes;        // 文件系统支持的inode数量
+	unsigned short s_nzones;         // 文件系统的磁盘块数量
+	unsigned short s_imap_blocks;    // inode位图的缓冲块数
+	unsigned short s_zmap_blocks;    // 磁盘块位图的缓冲块数
+	unsigned short s_firstdatazone;  // 文件系统的第一个磁盘块
 	unsigned short s_log_zone_size;
-	unsigned long s_max_size;
-	unsigned short s_magic;
+	unsigned long s_max_size;        // 文件支持的最大长度
+	unsigned short s_magic;          // 文件系统的魔数
 /* These are only in memory */
-	struct buffer_head * s_imap[8];
-	struct buffer_head * s_zmap[8];
-	unsigned short s_dev;
+	struct buffer_head * s_imap[8]; // inode maps buffer
+	struct buffer_head * s_zmap[8]; // block maps buffer
+	unsigned short s_dev;           // 对应的设备号
 	struct m_inode * s_isup;
-	struct m_inode * s_imount;
+	struct m_inode * s_imount;      // 文件系统对应的根inode
 	unsigned long s_time;
-	struct task_struct * s_wait;
+	struct task_struct * s_wait;    // 等待超级块的进程
 	unsigned char s_lock;
 	unsigned char s_rd_only;
 	unsigned char s_dirt;

@@ -88,6 +88,12 @@ static int match(int len,const char * name,struct dir_entry * de)
  * This also takes care of the few special cases due to '..'-traversal
  * over a pseudo-root and a mount point.
  */
+/*
+ * dir: 目录inode
+ * name: 要查找的文件名
+ * namelen: name的长度
+ * res_dir: 
+ */
 static struct buffer_head * find_entry(struct m_inode ** dir,
 	const char * name, int namelen, struct dir_entry ** res_dir)
 {
@@ -104,33 +110,40 @@ static struct buffer_head * find_entry(struct m_inode ** dir,
 	if (namelen > NAME_LEN)
 		namelen = NAME_LEN;
 #endif
+
+	// 计算当前目录有多少个文件项
+	// i_size是目录数据块有多少字节的数据(也就是目录的数据长度)
 	entries = (*dir)->i_size / (sizeof (struct dir_entry));
 	*res_dir = NULL;
 	if (!namelen)
 		return NULL;
+
 /* check for '..', as we might have to do some "magic" for it */
 	if (namelen==2 && get_fs_byte(name)=='.' && get_fs_byte(name+1)=='.') {
 /* '..' in a pseudo-root results in a faked '.' (just change namelen) */
-		if ((*dir) == current->root)
+		if ((*dir) == current->root) // 如果当前目录就是进程的根目录
 			namelen=1;
-		else if ((*dir)->i_num == ROOT_INO) {
+		else if ((*dir)->i_num == ROOT_INO) { // 如果当前目录是根目录
 /* '..' over a mount-point results in 'dir' being exchanged for the mounted
    directory-inode. NOTE! We set mounted, so that we can iput the new dir */
-			sb=get_super((*dir)->i_dev);
-			if (sb->s_imount) {
+			// 这里会把挂载文件系统的inode找出来(也就是上层文件系统的inode)
+			sb=get_super((*dir)->i_dev); // 获取超级块
+			if (sb->s_imount) { // 被挂载的inode(也就是上一级文件系统的挂载点inode)
 				iput(*dir);
 				(*dir)=sb->s_imount;
 				(*dir)->i_count++;
 			}
 		}
 	}
-	if (!(block = (*dir)->i_zone[0]))
+
+	if (!(block = (*dir)->i_zone[0])) // 如果文件夹数据块为空, 那么有可能文件系统出错了
 		return NULL;
-	if (!(bh = bread((*dir)->i_dev,block)))
+	if (!(bh = bread((*dir)->i_dev,block))) // 读取文件夹第一个数据块
 		return NULL;
 	i = 0;
 	de = (struct dir_entry *) bh->b_data;
 	while (i < entries) {
+		// 如果当前数据块已经搜索完毕, 读取下一个数据块
 		if ((char *)de >= BLOCK_SIZE+bh->b_data) {
 			brelse(bh);
 			bh = NULL;
@@ -141,7 +154,7 @@ static struct buffer_head * find_entry(struct m_inode ** dir,
 			}
 			de = (struct dir_entry *) bh->b_data;
 		}
-		if (match(namelen,name,de)) {
+		if (match(namelen,name,de)) { // 如果匹配成功
 			*res_dir = de;
 			return bh;
 		}
@@ -177,36 +190,39 @@ static struct buffer_head * add_entry(struct m_inode * dir,
 	if (namelen > NAME_LEN)
 		namelen = NAME_LEN;
 #endif
+
 	if (!namelen)
 		return NULL;
-	if (!(block = dir->i_zone[0]))
+	if (!(block = dir->i_zone[0])) // 先从旧的数据块中查找空闲的目录项
 		return NULL;
 	if (!(bh = bread(dir->i_dev,block)))
 		return NULL;
 	i = 0;
 	de = (struct dir_entry *) bh->b_data;
 	while (1) {
+		// 如果当前的数据块已经查找完毕, 查找下一个数据块
 		if ((char *)de >= BLOCK_SIZE+bh->b_data) {
 			brelse(bh);
 			bh = NULL;
-			block = create_block(dir,i/DIR_ENTRIES_PER_BLOCK);
+			block = create_block(dir,i/DIR_ENTRIES_PER_BLOCK); // 读取或者创建一个数据块
 			if (!block)
 				return NULL;
-			if (!(bh = bread(dir->i_dev,block))) {
+			if (!(bh = bread(dir->i_dev,block))) { // 读取此数据块
 				i += DIR_ENTRIES_PER_BLOCK;
 				continue;
 			}
 			de = (struct dir_entry *) bh->b_data;
 		}
+		// 如果遍历完所有的文件列表都找不到空闲的记录, 那么新插入一条记录
 		if (i*sizeof(struct dir_entry) >= dir->i_size) {
 			de->inode=0;
 			dir->i_size = (i+1)*sizeof(struct dir_entry);
 			dir->i_dirt = 1;
 			dir->i_ctime = CURRENT_TIME;
 		}
-		if (!de->inode) {
+		if (!de->inode) { // 空闲的记录, 初始化数据
 			dir->i_mtime = CURRENT_TIME;
-			for (i=0; i < NAME_LEN ; i++)
+			for (i=0; i < NAME_LEN ; i++) // 复制文件名到记录中
 				de->name[i]=(i<namelen)?get_fs_byte(name+i):0;
 			bh->b_dirt = 1;
 			*res_dir = de;
@@ -234,27 +250,31 @@ static struct m_inode * get_dir(const char * pathname)
 	int namelen,inr,idev;
 	struct dir_entry * de;
 
-	if (!current->root || !current->root->i_count)
+	if (!current->root || !current->root->i_count) // 根目录节点是否有效
 		panic("No root inode");
-	if (!current->pwd || !current->pwd->i_count)
+	if (!current->pwd || !current->pwd->i_count)   // 当前工作目录节点是否有效
 		panic("No cwd inode");
-	if ((c=get_fs_byte(pathname))=='/') {
+
+	if ((c=get_fs_byte(pathname))=='/') { // 从根目录开始查找
 		inode = current->root;
 		pathname++;
-	} else if (c)
+	} else if (c) // 从当前工作目录开始查找
 		inode = current->pwd;
 	else
 		return NULL;	/* empty name is bad */
+
 	inode->i_count++;
 	while (1) {
 		thisname = pathname;
+		// 如果当前inode不是文件夹或者没有权限操作
 		if (!S_ISDIR(inode->i_mode) || !permission(inode,MAY_EXEC)) {
 			iput(inode);
 			return NULL;
 		}
+		// 这里主要找到下一级目录名
 		for(namelen=0;(c=get_fs_byte(pathname++))&&(c!='/');namelen++)
 			/* nothing */ ;
-		if (!c)
+		if (!c) // 路径已经查找完成
 			return inode;
 		if (!(bh = find_entry(&inode,thisname,namelen,&de))) {
 			iput(inode);
@@ -264,7 +284,7 @@ static struct m_inode * get_dir(const char * pathname)
 		idev = inode->i_dev;
 		brelse(bh);
 		iput(inode);
-		if (!(inode = iget(idev,inr)))
+		if (!(inode = iget(idev,inr))) // 读取下一级目录的inode
 			return NULL;
 	}
 }
