@@ -255,10 +255,10 @@ static struct m_inode * get_dir(const char * pathname)
 	if (!current->pwd || !current->pwd->i_count)   // 当前工作目录节点是否有效
 		panic("No cwd inode");
 
-	if ((c=get_fs_byte(pathname))=='/') { // 从根目录开始查找
+	if ((c=get_fs_byte(pathname))=='/') { // 从根目录开始查找(绝对路径)
 		inode = current->root;
 		pathname++;
-	} else if (c) // 从当前工作目录开始查找
+	} else if (c) // 从当前工作目录开始查找(相对路径)
 		inode = current->pwd;
 	else
 		return NULL;	/* empty name is bad */
@@ -295,6 +295,7 @@ static struct m_inode * get_dir(const char * pathname)
  * dir_namei() returns the inode of the directory of the
  * specified name, and the name within that directory.
  */
+// 找到pathname对应目录部分的inode, 并且返回文件名(也就是非目录部分)
 static struct m_inode * dir_namei(const char * pathname,
 	int * namelen, const char ** name)
 {
@@ -302,7 +303,7 @@ static struct m_inode * dir_namei(const char * pathname,
 	const char * basename;
 	struct m_inode * dir;
 
-	if (!(dir = get_dir(pathname)))
+	if (!(dir = get_dir(pathname))) // 找到pathname的目录部分inode
 		return NULL;
 	basename = pathname;
 	while ((c=get_fs_byte(pathname++)))
@@ -328,11 +329,12 @@ struct m_inode * namei(const char * pathname)
 	struct buffer_head * bh;
 	struct dir_entry * de;
 
+	// 先找到目录部分的inode
 	if (!(dir = dir_namei(pathname,&namelen,&basename)))
 		return NULL;
-	if (!namelen)			/* special case: '/usr/' etc */
+	if (!namelen)			/* special case: '/usr/' etc */ // 如果没有文件名, 直接返回目录inode
 		return dir;
-	bh = find_entry(&dir,basename,namelen,&de);
+	bh = find_entry(&dir,basename,namelen,&de); // 获取文件所在目录的记录de
 	if (!bh) {
 		iput(dir);
 		return NULL;
@@ -341,7 +343,7 @@ struct m_inode * namei(const char * pathname)
 	dev = dir->i_dev;
 	brelse(bh);
 	iput(dir);
-	dir=iget(dev,inr);
+	dir=iget(dev,inr); // 获取文件的inode
 	if (dir) {
 		dir->i_atime=CURRENT_TIME;
 		dir->i_dirt=1;
