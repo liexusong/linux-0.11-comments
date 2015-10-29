@@ -43,6 +43,7 @@ extern int sys_close(int fd);
  * memory and creates the pointer tables from them, and puts their
  * addresses on the "stack", returning the new stack pointer value.
  */
+// 建立参数数组和环境变量数组
 static unsigned long * create_tables(char * p,int argc,int envc)
 {
 	unsigned long *argv,*envp;
@@ -53,9 +54,9 @@ static unsigned long * create_tables(char * p,int argc,int envc)
 	envp = sp;
 	sp -= argc+1;
 	argv = sp;
-	put_fs_long((unsigned long)envp,--sp);
-	put_fs_long((unsigned long)argv,--sp);
-	put_fs_long((unsigned long)argc,--sp);
+	put_fs_long((unsigned long)envp,--sp); // envp指针数组
+	put_fs_long((unsigned long)argv,--sp); // argv指针数组
+	put_fs_long((unsigned long)argc,--sp); // argc值
 	while (argc-->0) {
 		put_fs_long((unsigned long) p,argv++);
 		while (get_fs_byte(p++)) /* nothing */ ;
@@ -101,6 +102,8 @@ static int count(char ** argv)
  * it is expensive to load a segment register, we try to avoid calling
  * set_fs() unless we absolutely have to.
  */
+// argv是参数数组的指针(可能在用户态, 也可能在内核态)
+// page是内核态的内存页
 static unsigned long copy_strings(int argc,char ** argv,unsigned long *page,
 		unsigned long p, int from_kmem)
 {
@@ -110,28 +113,30 @@ static unsigned long copy_strings(int argc,char ** argv,unsigned long *page,
 
 	if (!p)
 		return 0;	/* bullet-proofing */
-	new_fs = get_ds();
-	old_fs = get_fs();
-	if (from_kmem==2)
-		set_fs(new_fs);
+	new_fs = get_ds();   // 获取DS寄存器的值
+	old_fs = get_fs();   // 获取FS寄存器的值
+	if (from_kmem==2)    // 如果数据来源于内核
+		set_fs(new_fs);  // 则设置FS为内核数据段
 	while (argc-- > 0) {
 		if (from_kmem == 1)
 			set_fs(new_fs);
+		// 获取参数指针
 		if (!(tmp = (char *)get_fs_long(((unsigned long *)argv)+argc)))
 			panic("argc is wrong");
 		if (from_kmem == 1)
 			set_fs(old_fs);
 		len=0;		/* remember zero-padding */
 		do {
-			len++;
-		} while (get_fs_byte(tmp++));
+			len++; // 字符串的长度
+		} while (get_fs_byte(tmp++)); // 找到字符串的结尾字符NIL
 		if (p-len < 0) {	/* this shouldn't happen - 128kB */
 			set_fs(old_fs);
 			return 0;
 		}
+		// 复制字符串
 		while (len) {
 			--p; --tmp; --len;
-			if (--offset < 0) {
+			if (--offset < 0) { // offset是内存页的偏移量
 				offset = p % PAGE_SIZE;
 				if (from_kmem==2)
 					set_fs(old_fs);
@@ -143,7 +148,7 @@ static unsigned long copy_strings(int argc,char ** argv,unsigned long *page,
 					set_fs(new_fs);
 
 			}
-			*(pag + offset) = get_fs_byte(tmp);
+			*(pag + offset) = get_fs_byte(tmp); // 从后往前复制
 		}
 	}
 	if (from_kmem==2)
@@ -157,7 +162,7 @@ static unsigned long change_ldt(unsigned long text_size,unsigned long * page)
 	int i;
 
 	code_limit = text_size+PAGE_SIZE -1;
-	code_limit &= 0xFFFFF000;
+	code_limit &= 0xFFFFF000; // 内存页对齐
 	data_limit = 0x4000000;
 	code_base = get_base(current->ldt[1]);
 	data_base = code_base;
