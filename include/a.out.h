@@ -75,15 +75,19 @@ struct exec {
 #if defined(vax) || defined(hp300) || defined(pyr)
 #define SEGMENT_SIZE PAGE_SIZE
 #endif
+   
 #ifdef	hp300
 #define	PAGE_SIZE	4096
 #endif
+
 #ifdef	sony
 #define	SEGMENT_SIZE	0x2000
 #endif	/* Sony.  */
+
 #ifdef is68k
 #define SEGMENT_SIZE 0x20000
 #endif
+
 #if defined(m68k) && defined(PORTAR)
 #define PAGE_SIZE 0x400
 #define SEGMENT_SIZE PAGE_SIZE

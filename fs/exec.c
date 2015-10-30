@@ -156,6 +156,12 @@ static unsigned long copy_strings(int argc,char ** argv,unsigned long *page,
 	return p;
 }
 
+// 这个函数主要功能是修改进程的代码段和数据段的限长
+// 代码段长度修改为执行文件的代码段长度
+// 数据段长度修改为60M
+// 并且把page内存页与线性地址做映射关系
+// text_size: 代码段长度
+// page: 要映射的内存页
 static unsigned long change_ldt(unsigned long text_size,unsigned long * page)
 {
 	unsigned long code_limit,data_limit,code_base,data_base;
@@ -163,20 +169,22 @@ static unsigned long change_ldt(unsigned long text_size,unsigned long * page)
 
 	code_limit = text_size+PAGE_SIZE -1;
 	code_limit &= 0xFFFFF000; // 内存页对齐
-	data_limit = 0x4000000;
+	data_limit = 0x4000000;   // 数据段限制
 	code_base = get_base(current->ldt[1]);
 	data_base = code_base;
+
 	set_base(current->ldt[1],code_base);
 	set_limit(current->ldt[1],code_limit);
 	set_base(current->ldt[2],data_base);
 	set_limit(current->ldt[2],data_limit);
+
 /* make sure fs points to the NEW data segment */
 	__asm__("pushl $0x17\n\tpop %%fs"::);
 	data_base += data_limit;
 	for (i=MAX_ARG_PAGES-1 ; i>=0 ; i--) {
 		data_base -= PAGE_SIZE;
 		if (page[i])
-			put_page(page[i],data_base);
+			put_page(page[i],data_base); // 映射线性地址与物理地址(data_base是线性地址)
 	}
 	return data_limit;
 }
@@ -197,7 +205,7 @@ int do_execve(unsigned long * eip,long tmp,char * filename,
 	int sh_bang = 0;
 	unsigned long p=PAGE_SIZE*MAX_ARG_PAGES-4;
 
-	if ((0xffff & eip[1]) != 0x000f)
+	if ((0xffff & eip[1]) != 0x000f) // eip[1]是cs寄存器的值(内核态不能调用execve系统调用)
 		panic("execve called from supervisor mode");
 	for (i=0 ; i<MAX_ARG_PAGES ; i++)	/* clear page-table */
 		page[i]=0;
@@ -205,29 +213,31 @@ int do_execve(unsigned long * eip,long tmp,char * filename,
 		return -ENOENT;
 	argc = count(argv);
 	envc = count(envp);
-	
+
 restart_interp:
 	if (!S_ISREG(inode->i_mode)) {	/* must be regular file */
 		retval = -EACCES;
 		goto exec_error2;
 	}
 	i = inode->i_mode;
-	e_uid = (i & S_ISUID) ? inode->i_uid : current->euid;
-	e_gid = (i & S_ISGID) ? inode->i_gid : current->egid;
-	if (current->euid == inode->i_uid)
+	e_uid = (i & S_ISUID) ? inode->i_uid : current->euid; // 是否使用执行文件的uid
+	e_gid = (i & S_ISGID) ? inode->i_gid : current->egid; // 是否使用执行文件的gid
+	if (current->euid == inode->i_uid) // 如果执行文件属于当前进程(使用宿主权限)
 		i >>= 6;
-	else if (current->egid == inode->i_gid)
+	else if (current->egid == inode->i_gid) // 执行文件与当前进程的组相同(使用组权限)
 		i >>= 3;
 	if (!(i & 1) &&
-	    !((inode->i_mode & 0111) && suser())) {
+	    !((inode->i_mode & 0111) && suser())) { // 如果其他用户没有执行权限或者不是超级用户
 		retval = -ENOEXEC;
 		goto exec_error2;
 	}
+	// 读取文件头
 	if (!(bh = bread(inode->i_dev,inode->i_zone[0]))) {
 		retval = -EACCES;
 		goto exec_error2;
 	}
 	ex = *((struct exec *) bh->b_data);	/* read exec-header */
+	// 如果是shell脚本, 执行下面的逻辑
 	if ((bh->b_data[0] == '#') && (bh->b_data[1] == '!') && (!sh_bang)) {
 		/*
 		 * This section does the #! interpretation.
@@ -300,7 +310,9 @@ restart_interp:
 		set_fs(old_fs);
 		goto restart_interp;
 	}
+
 	brelse(bh);
+
 	if (N_MAGIC(ex) != ZMAGIC || ex.a_trsize || ex.a_drsize ||
 		ex.a_text+ex.a_data+ex.a_bss>0x3000000 ||
 		inode->i_size < ex.a_text+ex.a_data+ex.a_syms+N_TXTOFF(ex)) {
@@ -312,7 +324,8 @@ restart_interp:
 		retval = -ENOEXEC;
 		goto exec_error2;
 	}
-	if (!sh_bang) {
+
+	if (!sh_bang) { // 复制参数和环境变量到内存页
 		p = copy_strings(envc,envp,page,p,0);
 		p = copy_strings(argc,argv,page,p,0);
 		if (!p) {
@@ -320,6 +333,7 @@ restart_interp:
 			goto exec_error2;
 		}
 	}
+
 /* OK, This is the point of no return */
 	if (current->executable)
 		iput(current->executable);
@@ -330,6 +344,7 @@ restart_interp:
 		if ((current->close_on_exec>>i)&1)
 			sys_close(i);
 	current->close_on_exec = 0;
+	// 释放进程占用的内存页(因为执行新程序的时候, 这些内存页都是没有用的)
 	free_page_tables(get_base(current->ldt[1]),get_limit(0x0f));
 	free_page_tables(get_base(current->ldt[2]),get_limit(0x17));
 	if (last_task_used_math == current)
@@ -337,6 +352,7 @@ restart_interp:
 	current->used_math = 0;
 	p += change_ldt(ex.a_text,page)-MAX_ARG_PAGES*PAGE_SIZE;
 	p = (unsigned long) create_tables((char *)p,argc,envc);
+	// 程序暂时可以使用的最大内存
 	current->brk = ex.a_bss +
 		(current->end_data = ex.a_data +
 		(current->end_code = ex.a_text));
@@ -346,9 +362,11 @@ restart_interp:
 	i = ex.a_text+ex.a_data;
 	while (i&0xfff)
 		put_fs_byte(0,(char *) (i++));
-	eip[0] = ex.a_entry;		/* eip, magic happens :-) */
-	eip[3] = p;			/* stack pointer */
+
+	eip[0] = ex.a_entry;		/* eip, magic happens :-) 这里是execve返回时继续执行的入口(也就是程序的入口mian函数) */
+	eip[3] = p;					/* stack pointer */
 	return 0;
+
 exec_error2:
 	iput(inode);
 exec_error1:
