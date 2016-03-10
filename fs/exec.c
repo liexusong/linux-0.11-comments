@@ -360,7 +360,7 @@ restart_interp:
 	current->euid = e_uid;
 	current->egid = e_gid;
 	i = ex.a_text+ex.a_data;
-	while (i&0xfff)
+	while (i&0xfff) // 如果代码段+数据段不是页对齐, 那么补充不足的一页的数据
 		put_fs_byte(0,(char *) (i++));
 
 	eip[0] = ex.a_entry;		/* eip, magic happens :-) 这里是execve返回时继续执行的入口(也就是程序的入口mian函数) */

@@ -113,7 +113,7 @@ void main(void)		/* This really IS void, no error here. */
 	memory_end &= 0xfffff000; /* 3GB */
 	if (memory_end > 16*1024*1024) // 如果大于16M, 只支持16M的内存
 		memory_end = 16*1024*1024;
-	if (memory_end > 12*1024*1024) 
+	if (memory_end > 12*1024*1024)
 		buffer_memory_end = 4*1024*1024;  // 4M
 	else if (memory_end > 6*1024*1024)
 		buffer_memory_end = 2*1024*1024;  // 2M
@@ -125,15 +125,17 @@ void main(void)		/* This really IS void, no error here. */
 #endif
 	mem_init(main_memory_start,memory_end); /* 初始化内存 */
 	trap_init();                            /* 初始化CPU异常处理 */
-	blk_dev_init();
-	chr_dev_init();
+	blk_dev_init();                         /* 初始化块设备 */
+	chr_dev_init();                         /* 初始化字符设备 */
 	tty_init();
-	time_init();
-	sched_init();
-	buffer_init(buffer_memory_end);
-	hd_init();
-	floppy_init();
-	sti();
+	time_init();                            /* 初始化系统时钟 */
+	sched_init();                           /* 初始化调度环境 */
+	buffer_init(buffer_memory_end);         /* 初始化缓冲区 */
+	hd_init();                              /* 初始化硬盘 */
+	floppy_init();                          /* 初始化软盘 */
+
+	sti(); // 开启中断
+
 	// 上面都是在内核态(0)
 
 	move_to_user_mode(); // 使用用户态运行(3)

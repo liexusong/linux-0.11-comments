@@ -41,7 +41,7 @@ __asm__("movl %%eax,%%cr3"::"a" (0))
 
 /* these are not to be changed without changing head.s etc */
 #define LOW_MEM 0x100000
-#define PAGING_MEMORY (15*1024*1024)
+#define PAGING_MEMORY (15*1024*1024)   /* 15MB */
 #define PAGING_PAGES (PAGING_MEMORY>>12)
 #define MAP_NR(addr) (((addr)-LOW_MEM)>>12)
 #define USED 100
@@ -246,7 +246,7 @@ void un_wp_page(unsigned long * table_entry)
 	*table_entry = new_page | 7;
 	invalidate();
 	copy_page(old_page,new_page);
-}	
+}
 
 /*
  * This routine handles present pages, when users try to write
@@ -405,7 +405,7 @@ void do_no_page(unsigned long error_code,unsigned long address)
 	if (!(page = get_free_page()))
 		oom();
 /* remember that 1 block is used for header */
-	block = 1 + tmp/BLOCK_SIZE;
+	block = 1 + tmp/BLOCK_SIZE; // 跳过文件头
 	for (i=0 ; i<4 ; block++,i++)
 		nr[i] = bmap(current->executable,block); // 获得逻辑块号
 	// 从设备读取数据到内存页(4k)
@@ -427,7 +427,7 @@ void mem_init(long start_mem, long end_mem)
 	int i;
 
 	HIGH_MEMORY = end_mem;
-	for (i=0 ; i<PAGING_PAGES ; i++)
+	for (i=0 ; i<PAGING_PAGES ; i++) // PAGING_PAGES等于15MB的page数
 		mem_map[i] = USED;
 	i = MAP_NR(start_mem);
 	end_mem -= start_mem;
