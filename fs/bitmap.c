@@ -133,6 +133,9 @@ void free_inode(struct m_inode * inode)
 	memset(inode,0,sizeof(*inode));
 }
 
+/*
+ * 获取一个内存的inode
+ */
 struct m_inode * new_inode(int dev)
 {
 	struct m_inode * inode;

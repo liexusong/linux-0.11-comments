@@ -92,7 +92,7 @@ static void add_request(struct blk_dev_struct * dev, struct request * req)
 		return;
 	}
 	for ( ; tmp->next ; tmp=tmp->next)
-		if ((IN_ORDER(tmp,req) || 
+		if ((IN_ORDER(tmp,req) ||
 		    !IN_ORDER(tmp,tmp->next)) &&
 		    IN_ORDER(req,tmp->next))
 			break;
@@ -141,12 +141,12 @@ repeat:
 		if (req->dev<0)
 			break;
 /* if none found, sleep on new requests: check for rw_ahead */
-	if (req < request) {
-		if (rw_ahead) {
+	if (req < request) { // 找不到空闲的request
+		if (rw_ahead) {  // 如果是ahead操作, 直接返回
 			unlock_buffer(bh);
 			return;
 		}
-		sleep_on(&wait_for_request);
+		sleep_on(&wait_for_request); // 否则等待有空闲的request
 		goto repeat;
 	}
 /* fill up the request-info, and add it to the queue */

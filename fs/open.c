@@ -64,7 +64,7 @@ int sys_access(const char * filename,int mode)
 	 * XXX we are doing this test last because we really should be
 	 * swapping the effective with the real user id (temporarily),
 	 * and then calling suser() routine.  If we do call the
-	 * suser() routine, it needs to be called last. 
+	 * suser() routine, it needs to be called last.
 	 */
 	if ((!current->uid) &&
 	    (!(mode & 1) || (i_mode & 0111)))
@@ -154,16 +154,16 @@ int sys_open(const char * filename,int flag,int mode)
 	if (i>=NR_FILE)
 		return -EINVAL;
 	(current->filp[fd]=f)->f_count++;
-	if ((i=open_namei(filename,flag,mode,&inode))<0) {
+	if ((i=open_namei(filename,flag,mode,&inode))<0) { // 获取文件的inode
 		current->filp[fd]=NULL;
 		f->f_count=0;
 		return i;
 	}
 /* ttys are somewhat special (ttyxx major==4, tty major==5) */
-	if (S_ISCHR(inode->i_mode)) {
-		if (MAJOR(inode->i_zone[0])==4) {
-			if (current->leader && current->tty<0) {
-				current->tty = MINOR(inode->i_zone[0]);
+	if (S_ISCHR(inode->i_mode)) {          // 如果此文件属于字符设备
+		if (MAJOR(inode->i_zone[0])==4) {  // 如果是设备文件, 那么inode->i_zone[0]会放置设备号
+			if (current->leader && current->tty<0) {    // 如果当前进程是leader进程
+				current->tty = MINOR(inode->i_zone[0]); // 设置当前进程使用的tty号
 				tty_table[current->tty].pgrp = current->pgrp;
 			}
 		} else if (MAJOR(inode->i_zone[0])==5)
@@ -191,7 +191,7 @@ int sys_creat(const char * pathname, int mode)
 }
 
 int sys_close(unsigned int fd)
-{	
+{
 	struct file * filp;
 
 	if (fd >= NR_OPEN)

@@ -12,7 +12,7 @@
 #include <linux/kernel.h>
 #include <asm/segment.h>
 
-#include <string.h> 
+#include <string.h>
 #include <fcntl.h>
 #include <errno.h>
 #include <const.h>
@@ -92,7 +92,7 @@ static int match(int len,const char * name,struct dir_entry * de)
  * dir: 目录inode
  * name: 要查找的文件名
  * namelen: name的长度
- * res_dir: 
+ * res_dir:
  */
 static struct buffer_head * find_entry(struct m_inode ** dir,
 	const char * name, int namelen, struct dir_entry ** res_dir)
@@ -380,7 +380,7 @@ int open_namei(const char * pathname, int flag, int mode,
 		return -EISDIR;
 	}
 	bh = find_entry(&dir,basename,namelen,&de);
-	if (!bh) {
+	if (!bh) { // 文件还不存在于目录中
 		if (!(flag & O_CREAT)) {
 			iput(dir);
 			return -ENOENT;
@@ -389,7 +389,7 @@ int open_namei(const char * pathname, int flag, int mode,
 			iput(dir);
 			return -EACCES;
 		}
-		inode = new_inode(dir->i_dev);
+		inode = new_inode(dir->i_dev); // 申请一个inode
 		if (!inode) {
 			iput(dir);
 			return -ENOSPC;
@@ -438,7 +438,7 @@ int sys_mknod(const char * filename, int mode, int dev)
 	struct m_inode * dir, * inode;
 	struct buffer_head * bh;
 	struct dir_entry * de;
-	
+
 	if (!suser())
 		return -EPERM;
 	if (!(dir = dir_namei(filename,&namelen,&basename)))
@@ -576,7 +576,7 @@ static int empty_dir(struct m_inode * inode)
 		return 0;
 	}
 	de = (struct dir_entry *) bh->b_data;
-	if (de[0].inode != inode->i_num || !de[1].inode || 
+	if (de[0].inode != inode->i_num || !de[1].inode ||
 	    strcmp(".",de[0].name) || strcmp("..",de[1].name)) {
 	    	printk("warning - bad directory on dev %04x\n",inode->i_dev);
 		return 0;

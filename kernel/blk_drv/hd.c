@@ -9,7 +9,7 @@
  * request-list, using interrupts to jump between functions. As
  * all the functions are called within interrupts, we may not
  * sleep. Special care is recommended.
- * 
+ *
  *  modified by Drew Eckhardt to check nr of hd's from the CMOS.
  */
 
@@ -115,25 +115,25 @@ int sys_setup(void * BIOS)
 	}
 
 	/*
-		We querry CMOS about hard disks : it could be that 
+		We querry CMOS about hard disks : it could be that
 		we have a SCSI/ESDI/etc controller that is BIOS
 		compatable with ST-506, and thus showing up in our
 		BIOS table, but not register compatable, and therefore
 		not present in CMOS.
 
 		Furthurmore, we will assume that our ST-506 drives
-		<if any> are the primary drives in the system, and 
+		<if any> are the primary drives in the system, and
 		the ones reflected as drive 1 or 2.
 
 		The first drive is stored in the high nibble of CMOS
 		byte 0x12, the second in the low nibble.  This will be
-		either a 4 bit drive type or 0xf indicating use byte 0x19 
+		either a 4 bit drive type or 0xf indicating use byte 0x19
 		for an 8 bit type, drive 1, 0x1a for drive 2 in CMOS.
 
-		Needless to say, a non-zero value means we have 
+		Needless to say, a non-zero value means we have
 		an AT controller hard disk for that drive.
 
-		
+
 	*/
 
 	if ((cmos_disks = CMOS_READ(0x12)) & 0xf0)
@@ -153,6 +153,7 @@ int sys_setup(void * BIOS)
 				drive);
 			panic("");
 		}
+		// 是否合法的引导块
 		if (bh->b_data[510] != 0x55 || (unsigned char)
 		    bh->b_data[511] != 0xAA) {
 			printk("Bad partition table on drive %d\n\r",drive);

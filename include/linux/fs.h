@@ -102,7 +102,7 @@ struct m_inode {
 	struct task_struct * i_wait;
 	unsigned long i_atime;
 	unsigned long i_ctime;
-	unsigned short i_dev;
+	unsigned short i_dev; // 所在设备号
 	unsigned short i_num;
 	unsigned short i_count;
 	unsigned char i_lock;

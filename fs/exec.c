@@ -44,6 +44,28 @@ extern int sys_close(int fd);
  * addresses on the "stack", returning the new stack pointer value.
  */
 // 建立参数数组和环境变量数组
+
+/*
+	0x4000000
+		+--------+
+		|  ....  | (环境变量和启动参数的数据)
+		+--------+ . <--- p
+		|  NULL  |  \
+		+--------+   +------> (envc+1)
+		|  ....  |  /
+		+--------+ . <--- envp
+		|  NULL  |  \
+		+--------+   +------> (argc+1)
+		|  ....  |  /
+		+--------+ . <--- argv
+		|  envp  |
+		+--------+
+		|  argv  |
+		+--------+
+		|  argc  |
+		+--------+ <--- sp
+*/
+
 static unsigned long * create_tables(char * p,int argc,int envc)
 {
 	unsigned long *argv,*envp;
@@ -54,6 +76,7 @@ static unsigned long * create_tables(char * p,int argc,int envc)
 	envp = sp;
 	sp -= argc+1;
 	argv = sp;
+	// put: envp -> sp
 	put_fs_long((unsigned long)envp,--sp); // envp指针数组
 	put_fs_long((unsigned long)argv,--sp); // argv指针数组
 	put_fs_long((unsigned long)argc,--sp); // argc值
@@ -92,12 +115,17 @@ static int count(char ** argv)
  *
  * Modified by TYT, 11/24/91 to add the from_kmem argument, which specifies
  * whether the string and the string array are from user or kernel segments:
- * 
+ *
  * from_kmem     argv *        argv **
  *    0          user space    user space
  *    1          kernel space  user space
  *    2          kernel space  kernel space
- * 
+ *
+ * 上面的意思是:
+ * 0 代表参数和参数指针都来源于用户态
+ * 1 代表参数指针来源于内核态, 参数来源于用户态
+ * 2 代表参数和参数指针都来源于内核态
+ *
  * We do this by playing games with the fs segment register.  Since it
  * it is expensive to load a segment register, we try to avoid calling
  * set_fs() unless we absolutely have to.
@@ -113,14 +141,15 @@ static unsigned long copy_strings(int argc,char ** argv,unsigned long *page,
 
 	if (!p)
 		return 0;	/* bullet-proofing */
-	new_fs = get_ds();   // 获取DS寄存器的值
+	new_fs = get_ds();   // 获取DS寄存器的值 (内核态)
 	old_fs = get_fs();   // 获取FS寄存器的值
 	if (from_kmem==2)    // 如果数据来源于内核
 		set_fs(new_fs);  // 则设置FS为内核数据段
+
 	while (argc-- > 0) {
-		if (from_kmem == 1)
+		if (from_kmem == 1) // 如果参数指针来源于内核态
 			set_fs(new_fs);
-		// 获取参数指针
+		// 获取参数的指针
 		if (!(tmp = (char *)get_fs_long(((unsigned long *)argv)+argc)))
 			panic("argc is wrong");
 		if (from_kmem == 1)
@@ -142,7 +171,7 @@ static unsigned long copy_strings(int argc,char ** argv,unsigned long *page,
 					set_fs(old_fs);
 				if (!(pag = (char *) page[p/PAGE_SIZE]) &&
 				    !(pag = (char *) page[p/PAGE_SIZE] =
-				      (unsigned long *) get_free_page())) 
+				      (unsigned long *) get_free_page()))
 					return 0;
 				if (from_kmem==2)
 					set_fs(new_fs);
@@ -175,6 +204,7 @@ static unsigned long change_ldt(unsigned long text_size,unsigned long * page)
 
 	set_base(current->ldt[1],code_base);
 	set_limit(current->ldt[1],code_limit);
+
 	set_base(current->ldt[2],data_base);
 	set_limit(current->ldt[2],data_limit);
 
@@ -203,7 +233,7 @@ int do_execve(unsigned long * eip,long tmp,char * filename,
 	int e_uid, e_gid;
 	int retval;
 	int sh_bang = 0;
-	unsigned long p=PAGE_SIZE*MAX_ARG_PAGES-4;
+	unsigned long p=PAGE_SIZE*MAX_ARG_PAGES-4; // 4096 * 32 - 4
 
 	if ((0xffff & eip[1]) != 0x000f) // eip[1]是cs寄存器的值(内核态不能调用execve系统调用)
 		panic("execve called from supervisor mode");
@@ -237,7 +267,8 @@ restart_interp:
 		goto exec_error2;
 	}
 	ex = *((struct exec *) bh->b_data);	/* read exec-header */
-	// 如果是shell脚本, 执行下面的逻辑
+
+	// 1) 如果是shell脚本, 执行下面的逻辑
 	if ((bh->b_data[0] == '#') && (bh->b_data[1] == '!') && (!sh_bang)) {
 		/*
 		 * This section does the #! interpretation.
@@ -313,6 +344,8 @@ restart_interp:
 
 	brelse(bh);
 
+	// 2) 执行bin程序
+
 	if (N_MAGIC(ex) != ZMAGIC || ex.a_trsize || ex.a_drsize ||
 		ex.a_text+ex.a_data+ex.a_bss>0x3000000 ||
 		inode->i_size < ex.a_text+ex.a_data+ex.a_syms+N_TXTOFF(ex)) {
@@ -340,7 +373,7 @@ restart_interp:
 	current->executable = inode;
 	for (i=0 ; i<32 ; i++)
 		current->sigaction[i].sa_handler = NULL;
-	for (i=0 ; i<NR_OPEN ; i++)
+	for (i=0 ; i<NR_OPEN ; i++) // 执行程序时需要关闭的文件
 		if ((current->close_on_exec>>i)&1)
 			sys_close(i);
 	current->close_on_exec = 0;
@@ -363,8 +396,9 @@ restart_interp:
 	while (i&0xfff) // 如果代码段+数据段不是页对齐, 那么补充不足的一页的数据
 		put_fs_byte(0,(char *) (i++));
 
-	eip[0] = ex.a_entry;		/* eip, magic happens :-) 这里是execve返回时继续执行的入口(也就是程序的入口mian函数) */
-	eip[3] = p;					/* stack pointer */
+	// 这里是execve返回时继续执行的入口(也就是程序的入口mian函数)
+	eip[0] = ex.a_entry;  /* eip, magic happens :-) */
+	eip[3] = p;			  /* stack pointer */
 	return 0;
 
 exec_error2:
