@@ -62,7 +62,7 @@ struct super_block * get_super(int dev)
 	s = 0+super_block;
 	while (s < NR_SUPER+super_block)
 		if (s->s_dev == dev) {
-			wait_on_super(s);
+			wait_on_super(s); // 等待超级块解锁
 			if (s->s_dev == dev)
 				return s;
 			s = 0+super_block;
@@ -106,12 +106,12 @@ static struct super_block * read_super(int dev)
 	if (!dev)
 		return NULL;
 	check_disk_change(dev);
-	if ((s = get_super(dev)))
+	if ((s = get_super(dev))) // 是否已经挂载了?
 		return s;
 	for (s = 0+super_block ;; s++) { // 获取一个空闲的内存超级块结构
 		if (s >= NR_SUPER+super_block)
 			return NULL;
-		if (!s->s_dev)
+		if (!s->s_dev) // 没有设备在使用 (此处是安全的, 因为内核态不会被时钟中断调度, 详见sched.c的do_timer()函数)
 			break;
 	}
 	s->s_dev = dev;
@@ -121,13 +121,13 @@ static struct super_block * read_super(int dev)
 	s->s_rd_only = 0;
 	s->s_dirt = 0;
 	lock_super(s);
-	if (!(bh = bread(dev,1))) { // 从磁盘读取超级块数据
+	if (!(bh = bread(dev,1))) { // 从磁盘读取超级块数据, 这里会让出cpu
 		s->s_dev=0;
 		free_super(s);
 		return NULL;
 	}
 	*((struct d_super_block *) s) =
-		*((struct d_super_block *) bh->b_data);
+		*((struct d_super_block *) bh->b_data); // 读取磁盘中超级块的数据
 	brelse(bh);
 	if (s->s_magic != SUPER_MAGIC) {
 		s->s_dev = 0;

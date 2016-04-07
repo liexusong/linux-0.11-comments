@@ -148,12 +148,13 @@ int sys_open(const char * filename,int flag,int mode)
 	if (fd>=NR_OPEN)
 		return -EINVAL;
 	current->close_on_exec &= ~(1<<fd);
+	// 查找一个空闲的file结构
 	f=0+file_table;
 	for (i=0 ; i<NR_FILE ; i++,f++)
 		if (!f->f_count) break;
 	if (i>=NR_FILE)
 		return -EINVAL;
-	(current->filp[fd]=f)->f_count++;
+	(current->filp[fd]=f)->f_count++; // 告诉其他进程此file结构已经被使用
 	if ((i=open_namei(filename,flag,mode,&inode))<0) { // 获取文件的inode
 		current->filp[fd]=NULL;
 		f->f_count=0;

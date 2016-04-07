@@ -113,9 +113,11 @@ void schedule(void)
 	for(p = &LAST_TASK ; p > &FIRST_TASK ; --p)
 		if (*p) {
 			if ((*p)->alarm && (*p)->alarm < jiffies) {
-					(*p)->signal |= (1<<(SIGALRM-1));
-					(*p)->alarm = 0;
-				}
+				(*p)->signal |= (1<<(SIGALRM-1));
+				(*p)->alarm = 0;
+			}
+			// 如果进程接收到信号, 而且信号不被阻塞
+			// 而且进程处于可中断状态, 那么把进程设置为可运行状态
 			if (((*p)->signal & ~(_BLOCKABLE & (*p)->blocked)) &&
 			(*p)->state==TASK_INTERRUPTIBLE)
 				(*p)->state=TASK_RUNNING;
@@ -323,7 +325,7 @@ void do_timer(long cpl)
 		next_timer->jiffies--;
 		while (next_timer && next_timer->jiffies <= 0) {
 			void (*fn)(void);
-			
+
 			fn = next_timer->fn;
 			next_timer->fn = NULL;
 			next_timer = next_timer->next;

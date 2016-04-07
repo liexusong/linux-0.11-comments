@@ -379,7 +379,7 @@ int open_namei(const char * pathname, int flag, int mode,
 		iput(dir);
 		return -EISDIR;
 	}
-	bh = find_entry(&dir,basename,namelen,&de);
+	bh = find_entry(&dir,basename,namelen,&de); // 在文件夹中查找文件项
 	if (!bh) { // 文件还不存在于目录中
 		if (!(flag & O_CREAT)) {
 			iput(dir);
@@ -411,20 +411,20 @@ int open_namei(const char * pathname, int flag, int mode,
 		*res_inode = inode;
 		return 0;
 	}
-	inr = de->inode;
-	dev = dir->i_dev;
+	inr = de->inode;   // 文件所在inode号
+	dev = dir->i_dev;  // 文件所在的设备号
 	brelse(bh);
 	iput(dir);
 	if (flag & O_EXCL)
 		return -EEXIST;
-	if (!(inode=iget(dev,inr)))
+	if (!(inode=iget(dev,inr)))  // 获取文件的inode
 		return -EACCES;
 	if ((S_ISDIR(inode->i_mode) && (flag & O_ACCMODE)) ||
 	    !permission(inode,ACC_MODE(flag))) {
 		iput(inode);
 		return -EPERM;
 	}
-	inode->i_atime = CURRENT_TIME;
+	inode->i_atime = CURRENT_TIME;  // 设置访问时间
 	if (flag & O_TRUNC)
 		truncate(inode);
 	*res_inode = inode;

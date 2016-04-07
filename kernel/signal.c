@@ -53,7 +53,7 @@ int sys_signal(int signum, long handler, long restorer)
 
 	if (signum<1 || signum>32 || signum==SIGKILL)
 		return -1;
-	tmp.sa_handler = (void (*)(int)) handler;
+	tmp.sa_handler = (void (*)(int)) handler; // 回调函数
 	tmp.sa_mask = 0;
 	tmp.sa_flags = SA_ONESHOT | SA_NOMASK; // 此处表明处理一次之后恢复原来的处理函数
 	tmp.sa_restorer = (void (*)(void)) restorer;
@@ -81,8 +81,11 @@ int sys_sigaction(int signum, const struct sigaction * action,
 	return 0;
 }
 
-void do_signal(long signr,long eax, long ebx, long ecx, long edx,
+void do_signal(long signr,
+	/* system_call()提供 */
+	long eax, long ebx, long ecx, long edx,
 	long fs, long es, long ds,
+	/* 中断自动进栈 */
 	long eip, long cs, long eflags,
 	unsigned long * esp, long ss)
 {
@@ -121,6 +124,6 @@ void do_signal(long signr,long eax, long ebx, long ecx, long edx,
 	put_fs_long(ecx,tmp_esp++);
 	put_fs_long(edx,tmp_esp++);
 	put_fs_long(eflags,tmp_esp++);
-	put_fs_long(old_eip,tmp_esp++);
+	put_fs_long(old_eip,tmp_esp++);  // 这个是用户程序的中断点
 	current->blocked |= sa->sa_mask;
 }

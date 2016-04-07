@@ -61,7 +61,7 @@ int sys_read(unsigned int fd,char * buf,int count)
 		return -EINVAL;
 	if (!count)
 		return 0;
-	verify_area(buf,count);
+	verify_area(buf,count); // 验证buf是否有足够的内存
 	inode = file->f_inode;
 	if (inode->i_pipe)
 		return (file->f_mode&1)?read_pipe(inode,buf,count):-EIO;
@@ -69,7 +69,7 @@ int sys_read(unsigned int fd,char * buf,int count)
 		return rw_char(READ,inode->i_zone[0],buf,count,&file->f_pos);
 	if (S_ISBLK(inode->i_mode))
 		return block_read(inode->i_zone[0],&file->f_pos,buf,count);
-	if (S_ISDIR(inode->i_mode) || S_ISREG(inode->i_mode)) {
+	if (S_ISDIR(inode->i_mode) || S_ISREG(inode->i_mode)) { // 正规文件读写
 		if (count+file->f_pos > inode->i_size)
 			count = inode->i_size - file->f_pos;
 		if (count<=0)
@@ -84,7 +84,7 @@ int sys_write(unsigned int fd,char * buf,int count)
 {
 	struct file * file;
 	struct m_inode * inode;
-	
+
 	if (fd>=NR_OPEN || count <0 || !(file=current->filp[fd]))
 		return -EINVAL;
 	if (!count)

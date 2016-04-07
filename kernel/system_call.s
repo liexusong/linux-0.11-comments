@@ -109,7 +109,7 @@ ret_from_sys_call:
 	jne 3f
 	cmpw $0x17,OLDSS(%esp)		# was stack segment = 0x17 ?
 	jne 3f
-	movl signal(%eax),%ebx
+	movl signal(%eax),%ebx     # 获取信号位图
 	movl blocked(%eax),%ecx
 	notl %ecx
 	andl %ebx,%ecx
@@ -202,7 +202,7 @@ timer_interrupt:
 
 .align 2
 sys_execve:
-	lea EIP(%esp),%eax
+	lea EIP(%esp),%eax # 中断前的eip
 	pushl %eax
 	call do_execve
 	addl $4,%esp
