@@ -67,7 +67,7 @@ struct tss_struct {
 	long	cr3;
 	long	eip;
 	long	eflags;
-	long	eax,ecx,edx,ebx;
+	long	eax,ecx,edx,ebx; // 通用寄存器
 	long	esp;
 	long	ebp;
 	long	esi;
@@ -78,7 +78,7 @@ struct tss_struct {
 	long	ds;			/* 16 high bits zero */
 	long	fs;			/* 16 high bits zero */
 	long	gs;			/* 16 high bits zero */
-	long	ldt;		/* 16 high bits zero */
+	long	ldt;		/* 16 high bits zero */ // ldt寄存器
 	long	trace_bitmap;	/* bits: trace 0, bitmap 16-31 */
 	struct i387_struct i387;  // 协处理器信息
 };
@@ -88,11 +88,12 @@ struct task_struct {
 	long state;	/* -1 unrunnable, 0 runnable, >0 stopped */
 	long counter;
 	long priority;
-	long signal;  // 用于保存发生的信号
+	long signal;                     // 用于保存发生的信号
 	struct sigaction sigaction[32];  // 信号处理信息
 	long blocked;	/* bitmap of masked signals */
 /* various fields */
 	int exit_code;
+	// 内存边界
 	unsigned long start_code, end_code,
 				  end_data, brk, start_stack;
 	long pid,father,pgrp,session,leader;
@@ -255,10 +256,10 @@ static inline unsigned long _get_base(char * addr)
          return __base;
 }
 
+// 获取段的开始地址
 #define get_base(ldt) _get_base( ((char *)&(ldt)) )
 
-// 从ldtr寄存器获取段长度限制
-// lsll是加载段界限的指令, 即把segment段描述符中的段界限字段装入某个寄存器
+// lsll(load segment limit long)是加载段界限的指令, 即把segment段描述符中的段界限字段装入某个寄存器
 #define get_limit(segment) ({ \
 unsigned long __limit; \
 __asm__("lsll %1,%0\n\tincl %0":"=r" (__limit):"r" (segment)); \

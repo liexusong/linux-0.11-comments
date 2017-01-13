@@ -157,12 +157,12 @@ int copy_page_tables(unsigned long from,unsigned long to,long size)
 	unsigned long * from_dir, * to_dir;
 	unsigned long nr;
 
-	if ((from&0x3fffff) || (to&0x3fffff))
+	if ((from & 0x3fffff) || (to & 0x3fffff)) // 如果不是64MB对齐, 那么就出错
 		panic("copy_page_tables called with wrong alignment");
 	// 源地址所在页目录项
-	from_dir = (unsigned long *) ((from>>20) & 0xffc); /* _pg_dir = 0 */
+	from_dir = (unsigned long *) ((from >> 20) & 0xffc); /* _pg_dir = 0 */
 	// 目标地址所在页目录项
-	to_dir = (unsigned long *) ((to>>20) & 0xffc);
+	to_dir = (unsigned long *) ((to >> 20) & 0xffc);
 	// 要复制多少个项
 	size = ((unsigned) (size+0x3fffff)) >> 22;
 	for( ; size-- > 0 ; from_dir++,to_dir++) {
@@ -170,19 +170,19 @@ int copy_page_tables(unsigned long from,unsigned long to,long size)
 			panic("copy_page_tables: already exist");
 		if (!(1 & *from_dir))
 			continue;
+		// from_page_table为页表项
 		from_page_table = (unsigned long *) (0xfffff000 & *from_dir);
 		if (!(to_page_table = (unsigned long *) get_free_page()))
 			return -1;	/* Out of memory, see freeing */
 		// 设置页目录表项的信息:
 		// 把最后3位设置为1, 表示对应页表映射的内存页面是: 用户级的,可读写的,存在的
-		*to_dir = ((unsigned long) to_page_table) | 7;
-		nr = (from==0)?0xA0:1024;
+		*to_dir = ((unsigned long) to_page_table) | 7; // 7的二进制为: 111
+		nr = (from==0) ? 0xA0 : 1024;  // 0xA0 == 160
 		for ( ; nr-- > 0 ; from_page_table++,to_page_table++) {
 			this_page = *from_page_table;
 			if (!(1 & this_page))
 				continue;
-			// 把当前页表项设置为只读
-			this_page &= ~2;
+			this_page &= ~2; // 把当前页表项设置为只读(用于copy on write)
 			*to_page_table = this_page;
 			if (this_page > LOW_MEM) {
 				*from_page_table = this_page;

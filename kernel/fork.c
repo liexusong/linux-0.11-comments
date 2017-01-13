@@ -46,8 +46,8 @@ int copy_mem(int nr,struct task_struct * p)
 	unsigned long old_data_base,new_data_base,data_limit;
 	unsigned long old_code_base,new_code_base,code_limit;
 
-	code_limit=get_limit(0x0f); // 代码段长度限制(LDT中)
-	data_limit=get_limit(0x17); // 数据段长度限制(LDT中)
+	code_limit = get_limit(0x0f); // 代码段长度限制(LDT中)
+	data_limit = get_limit(0x17); // 数据段长度限制(LDT中)
 	old_code_base = get_base(current->ldt[1]); // 被复制的进程代码段起始位置
 	old_data_base = get_base(current->ldt[2]); // 被复制的进程数据段起始位置
 	if (old_data_base != old_code_base)
@@ -56,6 +56,7 @@ int copy_mem(int nr,struct task_struct * p)
 		panic("Bad data_limit");
 	// 新进程代码段和数据段的内存起始位置
 	// nr是进程号, 进程的数据段和代码段开始地址为(nr * 0x4000000)
+	// 0x4000000 == 67108864 == 64MB
 	new_data_base = new_code_base = nr * 0x4000000;
 	p->start_code = new_code_base;
 	// 设置ldt
@@ -78,7 +79,7 @@ int copy_mem(int nr,struct task_struct * p)
 int copy_process(
 		/* 下面参数由sys_fork()提供 */
 		int nr, long ebp, long edi, long esi, long gs,
-		/* 下面参数由system_call()中断提供 */
+		/* 下面参数由system_call()中断提供, none是调用系统调用sys_fork()时压栈的eip */
 		long none, long ebx, long ecx, long edx,
 		long fs, long es, long ds,
 		/* 由中断发生时自动压栈 */
@@ -107,11 +108,11 @@ int copy_process(
 	p->start_time = jiffies;  // 进程创建的时间
 	// 设置TSS结构体
 	p->tss.back_link = 0;
-	p->tss.esp0 = PAGE_SIZE + (long) p; // 内核态堆栈(物理地址)
+	p->tss.esp0 = PAGE_SIZE + (long) p; // 内核态堆栈
 	p->tss.ss0 = 0x10;                  // 内核数据段(0 ~ 16MB)
-	p->tss.eip = eip;
-	p->tss.eflags = eflags;
-	p->tss.eax = 0;  // 子进程fork()的返回值
+	p->tss.eip = eip;                   // fork()返回后运行的第一条指令
+	p->tss.eflags = eflags;             // eflags寄存器
+	p->tss.eax = 0;                     // 子进程fork()的返回值
 	p->tss.ecx = ecx;
 	p->tss.edx = edx;
 	p->tss.ebx = ebx;
@@ -125,10 +126,10 @@ int copy_process(
 	p->tss.ds = ds & 0xffff;
 	p->tss.fs = fs & 0xffff;
 	p->tss.gs = gs & 0xffff;
-	p->tss.ldt = _LDT(nr); // 指向GDT的偏移量
+	p->tss.ldt = _LDT(nr);             // LDT的位置(指向GDT的偏移量)
 	p->tss.trace_bitmap = 0x80000000;
 
-	if (last_task_used_math == current)
+	if (last_task_used_math == current) // 如果当前进程是最后一个使用协处理器的
 		__asm__("clts ; fnsave %0"::"m" (p->tss.i387));
 	if (copy_mem(nr,p)) {
 		task[nr] = NULL;

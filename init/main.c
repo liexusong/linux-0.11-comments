@@ -101,6 +101,9 @@ static long main_memory_start = 0;
 
 struct drive_info { char dummy[32]; } drive_info;
 
+/*
+ * 这时还在内核态, 也就是说mian()还是运行在内核态的
+ */
 void main(void)		/* This really IS void, no error here. */
 {			/* The startup routine assumes (well, ...) this */
 /*

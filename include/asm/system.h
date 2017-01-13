@@ -6,11 +6,11 @@
  */
 #define move_to_user_mode()     \
 __asm__ ("movl %%esp,%%eax\n\t" \
-	"pushl $0x17\n\t"           \
-	"pushl %%eax\n\t"           \
-	"pushfl\n\t"                \
-	"pushl $0x0f\n\t"           \
-	"pushl $1f\n\t"             \
+	"pushl $0x17\n\t"           \ // ss寄存器(二进制为: 00010 1 11, 表示用户态,LDT,第三项)
+	"pushl %%eax\n\t"           \ // esp寄存器
+	"pushfl\n\t"                \ // eflags寄存器
+	"pushl $0x0f\n\t"           \ // cs寄存器(二进制为: 00001 1 11, 表示用户态,LDT,第二项)
+	"pushl $1f\n\t"             \ // eip寄存器
 	"iret\n"                    \
 	"1:\tmovl $0x17,%%eax\n\t"  \
 	"movw %%ax,%%ds\n\t"        \

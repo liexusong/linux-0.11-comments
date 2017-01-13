@@ -139,7 +139,7 @@ after_page_tables:
 	pushl $0
 	pushl $0
 	pushl $L6		# return address for main, if it decides to.
-	pushl $main
+	pushl $main     # return address main() function and running
 	jmp setup_paging
 L6:
 	jmp L6			# main should never return here, but
@@ -217,7 +217,7 @@ setup_paging:
 	movl %cr0,%eax
 	orl $0x80000000,%eax
 	movl %eax,%cr0		/* set paging (PG) bit */
-	ret			/* this also flushes prefetch-queue */
+	ret			/* this also flushes prefetch-queue */ # return main() and start running
 
 .align 2
 .word 0
