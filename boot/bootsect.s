@@ -35,9 +35,9 @@ begbss:
 SETUPLEN = 4				//! nr of setup-sectors
 //! BOOT扇区被BIOS加载到的内存地址
 BOOTSEG  = 0x07c0			//! original address of boot-sector
-//! Linux将会把BOOT扇区移动到的内存地址
+//! BOOT会将自己移动到0x9000内存地址处
 INITSEG  = 0x9000			//! we move boot here - out of the way
-SETUPSEG = 0x9020			//! setup starts here
+SETUPSEG = 0x9020			//! setup starts here ! SETUPSEG放置的内存地址
 SYSSEG   = 0x1000			//! system loaded at 0x10000 (65536).
 ENDSEG   = SYSSEG + SYSSIZE		//! where to stop loading
 
