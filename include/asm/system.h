@@ -5,7 +5,7 @@
  * 3) 开始任务0的执行
  */
 #define move_to_user_mode()     \
-__asm__ ("movl %%esp,%%eax\n\t" \
+__asm__ ("movl %%esp,%%eax\n\t" \ // 把esp寄存器复制到eax
 	"pushl $0x17\n\t"           \ // ss寄存器(二进制为: 00010 1 11, 表示用户态,LDT,第三项)
 	"pushl %%eax\n\t"           \ // esp寄存器
 	"pushfl\n\t"                \ // eflags寄存器
